@@ -990,6 +990,76 @@
       }
     }
 
+    // ── CALCULAR DESCUENTO GLOBAL REAL ──────────────────────────
+    // Lógica: descuento global = ahorro total / (subtotal sin descuentos) × 100
+    // Para cada línea: si tiene DESC% > 0, el precio REAL = precio / (1 - desc/100)
+    // Ahorro = precio_real - precio_cobrado
+    // Descuento global = suma_ahorros / suma_precios_reales × 100
+
+    const flatText = text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ');
+
+    // Extraer filas de la tabla: cantidad, precio_unitario, desc%, importe
+    // Formato ISARACK: "DESCRIPCION cantidad precio desc% IVA(8%) $importe"
+    // Los valores numéricos tienen formato europeo: 1.056,000 o 36,00
+    function parseEuro(s) {
+      if (!s) return 0;
+      s = s.trim();
+      // Formato europeo: 1.056,000 → quitar puntos, cambiar coma por punto
+      if (/\d\.\d{3}/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
+      else s = s.replace(',', '.');
+      return parseFloat(s) || 0;
+    }
+
+    // Buscar todas las líneas con un descuento > 0
+    // Patrón: precio_unitario DESC% importe — buscar triplets numéricos seguidos de IVA
+    // Ejemplo: "36,00 0,00 IVA(8%) $ 864,00"
+    const linePattern = /([\d.,]+)\s+([\d.,]+)\s+IVA\(8%\)\s*\$\s*([\d.,]+)/g;
+    const lineMatches = [...flatText.matchAll(linePattern)];
+
+    let totalSinDesc = 0;
+    let totalConDesc = 0;
+
+    lineMatches.forEach(m => {
+      const precio = parseEuro(m[1]);
+      const desc   = parseEuro(m[2]);
+      const importe = parseEuro(m[3]);
+      if (precio > 0 && importe > 0) {
+        // importe = cantidad × precio × (1 - desc/100)
+        // cantidad = importe / (precio × (1 - desc/100))
+        const factor = desc > 0 ? (1 - desc/100) : 1;
+        const importeSinDesc = factor > 0 ? importe / factor : importe;
+        totalConDesc  += importe;
+        totalSinDesc  += importeSinDesc;
+      }
+    });
+
+    // Descuento global = ahorro / total_sin_desc
+    if (totalSinDesc > 0 && totalConDesc > 0) {
+      const ahorro = totalSinDesc - totalConDesc;
+      result.descuentoPct = Math.round((ahorro / totalSinDesc) * 100 * 10) / 10;
+      if (result.descuentoPct < 0) result.descuentoPct = 0;
+    }
+
+    // Fallback: si no encontró líneas, buscar descuento explícito en el texto
+    if (result.descuentoPct === 0) {
+      const descMatch = flatText.match(/descuento\s*[:\-]?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/i);
+      if (descMatch) result.descuentoPct = parseFloat(descMatch[1].replace(',','.'));
+    }
+
+    // Mapear descuento → % comisión
+    // 0%        → 2.20%
+    // 1%-3%     → 1.90%
+    // 4%-6%     → 1.60%
+    // 7%-10%    → 1.30%
+    function descuentoToPct(desc) {
+      if (desc <= 0)  return 2.20;
+      if (desc <= 3)  return 1.90;
+      if (desc <= 6)  return 1.60;
+      if (desc <= 10) return 1.30;
+      return 1.30; // mayor de 10%
+    }
+    result.pctSugerido = descuentoToPct(result.descuentoPct);
+
     return result;
   }
 
@@ -1028,6 +1098,11 @@
       status.innerHTML = `
         <div class="extract-field"><span class="extract-key">Cotización</span><span class="extract-val">${data.cotizacion || 'No encontrado'}</span></div>
         <div class="extract-field"><span class="extract-key">Factura</span><span class="extract-val">${data.factura || 'No encontrado'}</span></div>
+        <div class="extract-field"><span class="extract-key">Descuento detectado</span><span class="extract-val">${data.descuentoPct > 0 ? data.descuentoPct + '%' : 'Sin descuento'}</span></div>
+        <div class="extract-field" style="background:rgba(107,107,107,.15);padding:3px 4px;border-radius:3px;">
+          <span class="extract-key">▶ Comisión asignada</span>
+          <span class="extract-val" style="font-size:14px;">${data.pctSugerido}%</span>
+        </div>
         <div class="extract-field"><span class="extract-key">Cliente</span><span class="extract-val">${data.cliente || 'No encontrado'}</span></div>
         <div class="extract-field"><span class="extract-key">Moneda detectada</span><span class="extract-val">${data.currency || '?'}</span></div>
         <div class="extract-field"><span class="extract-key">Total bruto (PDF)</span><span class="extract-val">${data.totalBruto ? '$' + data.totalBruto.toFixed(2) : '—'}</span></div>
@@ -1036,6 +1111,8 @@
           <span class="extract-val" style="font-size:15px;">${netoVal ? '$' + netoVal.toFixed(2) : '—'}</span>
         </div>
       `;
+      // Guardar pct sugerido por descuento detectado
+      window._pendingPctSugerido = data.pctSugerido || 2.20;
       if (data.cotizacion) document.getElementById('newOdoo').value = data.cotizacion;
       if (data.factura) { const fEl = document.getElementById('newFactura'); if(fEl) fEl.value = data.factura; }
       if (data.cliente) document.getElementById('newCliente').value = data.cliente;
@@ -1072,12 +1149,13 @@
     const order = {
       id, odoo, facturaNum, cliente, dlls, pesos,
       ing: todayISO(),
-      pct: 2.20, pctCustom: null,
+      pct: window._pendingPctSugerido || 2.20, pctCustom: null,
       fechaPago: '', status: 'En Proceso', pub: 'No Publicado', observaciones: '', facturaSolicitada: false, anticipoPct: 100,
       files: { cotizacion: window._pendingCotPdf || null, factura: null, po: null, pago: null, hoja: null, foto: null }
     };
     orders.push(order);
     window._pendingCotPdf = null;
+    window._pendingPctSugerido = null;
     saveOrders();
     renderOrders();
     closeModal('newOrderModal');
