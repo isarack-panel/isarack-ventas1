@@ -424,19 +424,25 @@
   /* FILE ACTION MENU */
   .file-action-menu {
     position: fixed; z-index: 3000;
-    background: #222; border: 1px solid #444;
-    border-radius: 6px; box-shadow: 0 8px 32px rgba(0,0,0,.6);
-    padding: 6px; min-width: 170px;
-    top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: #1e1e1e; border: 1px solid #3a3a3a;
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.7);
+    padding: 6px; min-width: 120px;
   }
   .file-action-menu button {
-    display: block; width: 100%; text-align: left;
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; text-align: left;
     background: none; border: none; color: #e0e0e0;
-    padding: 8px 12px; cursor: pointer; border-radius: 4px;
-    font-family: 'Barlow', sans-serif; font-size: 12px;
+    padding: 9px 14px; cursor: pointer; border-radius: 6px;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 14px;
+    font-weight: 600; letter-spacing: .5px;
     transition: background .15s;
   }
-  .file-action-menu button:hover { background: #333; }
+  .file-action-menu button:hover { background: #2e2e2e; }
+  .file-action-menu button .fam-icon { font-size: 18px; }
+  .file-action-menu .fam-cancel { color: #666; font-size: 12px; }
+  .file-action-menu .fam-divider {
+    height: 1px; background: #333; margin: 4px 8px;
+  }
 
   /* LOADING OVERLAY */
   #loadingOverlay {
@@ -925,50 +931,41 @@
     const isMXN = /precios\s+en\s+mxn|pesos\s+mexicanos|m\.n\.|mxn/i.test(text);
 
     // ── 4. EXTRAER EL TOTAL FINAL (renglón "Total" en negritas) ──
-    // Estrategia A: buscar la palabra "Total" seguida del monto más grande / último monto
-    // En el PDF de ISARACK el texto es: "Total $ 1.457,42" o "Total $ 1,457.42"
     let totalBruto = null;
-
-    // Normalizar el texto para facilitar búsqueda (quitar espacios extra)
     const normalText = text.replace(/\s+/g, ' ');
 
-    // Buscar patrón: "Total" seguido opcionalmente de "$" y número
-    // Soporta formatos: 1,457.42 / 1.457,42 / 1457.42
-    const totalPatterns = [
-      /\bTotal\b[^0-9\n]{0,10}([\d]{1,3}(?:[.,]\d{3})*[.,]\d{2})/i,
-      /\bTotal\b\s*\$?\s*([\d,\.]+)/i,
-    ];
-
-    for (const pat of totalPatterns) {
-      const m = normalText.match(pat);
-      if (m) {
-        // Normalizar número: si tiene punto como separador de miles y coma como decimal (europeo)
-        let raw = m[1];
-        // Detectar formato europeo: 1.457,42
-        if (/\d{1,3}\.\d{3},\d{2}/.test(raw)) {
-          raw = raw.replace(/\./g, '').replace(',', '.');
-        } else {
-          // Formato americano: 1,457.42
-          raw = raw.replace(/,/g, '');
-        }
-        const num = parseFloat(raw);
-        if (num > 0) { totalBruto = num; break; }
+    // Universal number parser — handles European (1.234,56) and American (1,234.56)
+    function parseUniversal(raw) {
+      if (!raw) return 0;
+      raw = raw.trim().replace(/\s/g, '');
+      // European: ends with ,XX after thousands with dots: 9.553,68
+      if (/^[\d.]+,\d{1,2}$/.test(raw) && raw.includes('.')) {
+        return parseFloat(raw.replace(/\./g,'').replace(',','.')) || 0;
       }
+      // European simple: 864,00
+      if (/^\d+,\d{1,2}$/.test(raw)) {
+        return parseFloat(raw.replace(',','.')) || 0;
+      }
+      // American: 1,234.56
+      if (/^[\d,]+\.\d{1,2}$/.test(raw)) {
+        return parseFloat(raw.replace(/,/g,'')) || 0;
+      }
+      return parseFloat(raw.replace(',','.')) || 0;
     }
 
-    // Estrategia B: si no encontramos "Total", tomar el ÚLTIMO monto monetario del documento
-    // (que suele ser el total) buscando el valor más alto precedido de "$"
+    // Strategy A: find "Total" — take the LAST occurrence (grand total not subtotals)
+    const totalMatches = [...normalText.matchAll(/\bTotal\b[^\d$]{0,10}\$?\s*([\d][\d.,]*)/gi)];
+    if (totalMatches.length) {
+      const last = totalMatches[totalMatches.length - 1];
+      const num = parseUniversal(last[1]);
+      if (num > 0) totalBruto = num;
+    }
+
+    // Strategy B: find $ followed by number
     if (!totalBruto) {
-      const allAmounts = [...normalText.matchAll(/\$\s*([\d]{1,3}(?:[.,]\d{3})*[.,]\d{2})/g)];
-      if (allAmounts.length) {
-        const nums = allAmounts.map(m => {
-          let raw = m[1];
-          if (/\d{1,3}\.\d{3},\d{2}/.test(raw)) raw = raw.replace(/\./g,'').replace(',','.');
-          else raw = raw.replace(/,/g,'');
-          return parseFloat(raw);
-        }).filter(n => n > 0);
-        if (nums.length) totalBruto = Math.max(...nums);
-      }
+      const allAmounts = [...normalText.matchAll(/\$\s*([\d][\d.,]*)/g)];
+      const nums = allAmounts.map(m => parseUniversal(m[1])).filter(n => n > 0);
+      if (nums.length) totalBruto = Math.max(...nums);
     }
 
     // ── 5. APLICAR ÷ 1.08 y asignar a columna correcta (EXCLUSIVO) ──
@@ -1003,11 +1000,21 @@
     // Los valores numéricos tienen formato europeo: 1.056,000 o 36,00
     function parseEuro(s) {
       if (!s) return 0;
-      s = s.trim();
-      // Formato europeo: 1.056,000 → quitar puntos, cambiar coma por punto
-      if (/\d\.\d{3}/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
-      else s = s.replace(',', '.');
-      return parseFloat(s) || 0;
+      s = s.trim().replace(/\s/g, '');
+      // Formato europeo: 1.056,000 o 1.848,00 → punto=miles, coma=decimal
+      if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) {
+        return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+      }
+      // Solo coma decimal: 36,00 → 36.00
+      if (/^\d+(,\d+)$/.test(s)) {
+        return parseFloat(s.replace(',', '.')) || 0;
+      }
+      // Americano: 1,234.56
+      if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) {
+        return parseFloat(s.replace(/,/g, '')) || 0;
+      }
+      // Plain decimal
+      return parseFloat(s.replace(',', '.')) || 0;
     }
 
     // Buscar todas las líneas con un descuento > 0
@@ -1169,6 +1176,20 @@
     const data = list || orders;
     tbody.innerHTML = '';
     data.forEach(o => tbody.appendChild(buildRow(o)));
+    updateStats();
+  }
+
+  // Update single row IN PLACE — keeps row position, no reorder
+  function updateRow(id) {
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+    const existing = document.querySelector('tr.data-row[data-id="' + id + '"]');
+    if (existing) {
+      const newRow = buildRow(o);
+      existing.parentNode.replaceChild(newRow, existing);
+    } else {
+      renderOrders();
+    }
     updateStats();
   }
 
@@ -1335,33 +1356,58 @@
     const hasFile = o.files[key];
     const btnClass = hasFile ? 'btn-uploaded' : cls;
     const btnLabel = hasFile ? `✓ ${label.replace(/[^\w\s]/g,'')}` : label;
-    return `<button class="cell-btn ${btnClass}" onclick="openFileMenu(${o.id},'${key}')">${btnLabel}</button>`;
+    return `<button class="cell-btn ${btnClass}" onclick="openFileMenu(${o.id},'${key}',this)">${btnLabel}</button>`;
   }
 
   // ── FILE HANDLING ────────────────────────────────────────────
-  function openFileMenu(id, key) {
+  function openFileMenu(id, key, triggerEl) {
     const o = orders.find(x => x.id === id);
-    if (o.files[key]) {
-      // File exists: show mini menu — preview or replace
-      showFileActionMenu(id, key, o);
+    if (o && o.files[key]) {
+      showFileActionMenu(id, key, o, triggerEl);
       return;
     }
     uploadFile(id, key, o);
   }
 
-  function showFileActionMenu(id, key, o) {
+  function showFileActionMenu(id, key, o, triggerEl) {
     // Remove any existing menu
     document.querySelectorAll('.file-action-menu').forEach(el => el.remove());
     const menu = document.createElement('div');
     menu.className = 'file-action-menu';
+
+    const cambiarBtn = key === 'cotizacion'
+      ? `<button onclick="openReplaceModal(${id});this.closest('.file-action-menu').remove()"><span class="fam-icon">🔄</span>CAMBIAR</button>`
+      : `<button onclick="uploadFile(${id},'${key}',null);this.closest('.file-action-menu').remove()"><span class="fam-icon">🔄</span>CAMBIAR</button>`;
+
     menu.innerHTML = `
-      <button onclick="previewFile(${id},'${key}');this.closest('.file-action-menu').remove()">👁 Ver archivo</button>
-      <button onclick="uploadFile(${id},'${key}',null);this.closest('.file-action-menu').remove()">🔄 Cambiar archivo</button>
-      <button onclick="deleteFile(${id},'${key}');this.closest('.file-action-menu').remove()">🗑 Quitar archivo</button>
-      <button onclick="this.closest('.file-action-menu').remove()" style="color:#999">✕ Cancelar</button>
+      <button onclick="previewFile(${id},'${key}');this.closest('.file-action-menu').remove()"><span class="fam-icon">👁️</span>VER</button>
+      ${cambiarBtn}
+      <button onclick="deleteFile(${id},'${key}');this.closest('.file-action-menu').remove()"><span class="fam-icon">🗑️</span>QUITAR</button>
+      <div class="fam-divider"></div>
+      <button class="fam-cancel" onclick="this.closest('.file-action-menu').remove()"><span class="fam-icon" style="font-size:14px;">✕</span>CANCELAR</button>
     `;
     document.body.appendChild(menu);
-    // Position near cursor — use a small timeout to let it render
+
+    // Position near the trigger element (the button that was clicked)
+    const el = triggerEl || document.activeElement;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const mw = 140;
+      const mh = 180;
+      let top  = rect.bottom + 4;
+      let left = rect.left;
+      // Keep within viewport
+      if (left + mw > window.innerWidth)  left = window.innerWidth - mw - 8;
+      if (top  + mh > window.innerHeight) top  = rect.top - mh - 4;
+      if (left < 8) left = 8;
+      menu.style.top  = top  + 'px';
+      menu.style.left = left + 'px';
+    } else {
+      menu.style.top  = '50%';
+      menu.style.left = '50%';
+      menu.style.transform = 'translate(-50%,-50%)';
+    }
+
     const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } };
     setTimeout(() => document.addEventListener('click', close), 10);
   }
@@ -1415,10 +1461,88 @@
       }
 
       saveOrders();
-      renderOrders();
-      updateStats();
+      updateRow(id);
     };
     input.click();
+  }
+
+  // ── REPLACE COTIZACION: abre modal con datos actuales para re-extracción ──
+  function openReplaceModal(id) {
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+
+    // Store the order id being replaced
+    window._replacingOrderId = id;
+
+    // Pre-fill modal with existing data
+    document.getElementById('newOdoo').value    = o.odoo || '';
+    const fEl = document.getElementById('newFactura');
+    if (fEl) fEl.value = o.facturaNum || '';
+    document.getElementById('newCliente').value = o.cliente || '';
+    document.getElementById('newDlls').value    = o.dlls  || '';
+    document.getElementById('newPesos').value   = o.pesos || '';
+
+    // Reset dropzone state
+    document.getElementById('dropIcon').textContent  = '📄';
+    document.getElementById('dropText').innerHTML    = '<strong>Clic para seleccionar</strong> nuevo PDF';
+    document.getElementById('dropChangeTip').style.display = 'none';
+    document.getElementById('extractStatus').className = 'extract-status';
+    document.getElementById('pdfFileName').textContent = '';
+    document.getElementById('pdfUpload').value = '';
+    window._pendingCotPdf = null;
+    window._pendingPctSugerido = null;
+
+    // Change modal title and button
+    document.querySelector('#newOrderModal h2').textContent = '🔄 Actualizar Cotización';
+    document.querySelector('#newOrderModal .btn-confirm').textContent = 'Actualizar';
+    document.querySelector('#newOrderModal .btn-confirm').onclick = updateOrder;
+
+    // Open modal
+    document.getElementById('newOrderModal').classList.add('open');
+  }
+
+  function updateOrder() {
+    const id = window._replacingOrderId;
+    if (!id) return;
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+
+    // Only update fields extracted from PDF — preserve everything else
+    const newOdoo    = document.getElementById('newOdoo').value.trim();
+    const newFactura = document.getElementById('newFactura') ? document.getElementById('newFactura').value.trim() : '';
+    const newCliente = document.getElementById('newCliente').value.trim();
+    const newDlls    = parseFloat(document.getElementById('newDlls').value)  || null;
+    const newPesos   = parseFloat(document.getElementById('newPesos').value) || null;
+
+    // Update only auto-extracted fields
+    if (newOdoo)    o.odoo       = newOdoo;
+    if (newFactura) o.facturaNum = newFactura;
+    if (newCliente) o.cliente    = newCliente;
+
+    // Update amounts — if both filled apply exclusivity rule
+    if (newDlls && newPesos) {
+      if (newPesos > 5000) { o.dlls = null; o.pesos = newPesos; }
+      else                 { o.dlls = newDlls; o.pesos = null;  }
+    } else if (newDlls)  { o.dlls = newDlls;  o.pesos = null; }
+    else if (newPesos)   { o.pesos = newPesos; o.dlls  = null; }
+
+    // Update pct from discount detection
+    if (window._pendingPctSugerido) o.pct = window._pendingPctSugerido;
+
+    // Update cotizacion file if new one was uploaded
+    if (window._pendingCotPdf) o.files.cotizacion = window._pendingCotPdf;
+
+    // Reset modal to "Nueva Orden" mode
+    document.querySelector('#newOrderModal h2').textContent = '+ Nueva Orden';
+    document.querySelector('#newOrderModal .btn-confirm').textContent = 'Crear Orden';
+    document.querySelector('#newOrderModal .btn-confirm').onclick = createOrder;
+    window._replacingOrderId = null;
+
+    saveOrders();
+    renderOrders();
+    closeModal('newOrderModal');
+    resetModal();
+    updateStats();
   }
 
   function deleteFile(id, key) {
@@ -1426,8 +1550,7 @@
     if (o) {
       o.files[key] = null;
       saveOrders();
-      renderOrders();
-      updateStats();
+      updateRow(id);
     }
   }
 
@@ -1453,7 +1576,7 @@
   // ── FIELD UPDATES ────────────────────────────────────────────
   function updateField(id, field, val) {
     const o = orders.find(x => x.id === id);
-    if (o) { o[field] = val; saveOrders(); updateStats(); }
+    if (o) { o[field] = val; saveOrders(); updateRow(id); }
   }
 
   function updatePct(id, sel) {
@@ -1475,7 +1598,7 @@
 
   function updatePctCustom(id, input) {
     const o = orders.find(x => x.id === id);
-    if (o) { o.pctCustom = parseFloat(input.value) || 2.20; saveOrders(); renderOrders(); updateStats(); }
+    if (o) { o.pctCustom = parseFloat(input.value) || 2.20; saveOrders(); updateRow(id); }
   }
 
   // updateStatus — ahora el status se actualiza automáticamente al subir archivos
@@ -1496,8 +1619,7 @@
     const pct = Math.min(100, Math.max(1, parseFloat(val) || 100));
     o.anticipoPct = pct;
     saveOrders();
-    renderOrders();
-    updateStats();
+    updateRow(id);
   }
 
   // ── FACTURA SOLICITADA ───────────────────────────────────────
@@ -1506,8 +1628,7 @@
     if (!o) return;
     o.facturaSolicitada = !o.facturaSolicitada;
     saveOrders();
-    renderOrders();
-    updateStats();
+    updateRow(id);
   }
 
   // ── OBSERVACIONES ────────────────────────────────────────────
