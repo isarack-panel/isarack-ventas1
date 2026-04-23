@@ -1669,69 +1669,69 @@
     const tcFechaEl = document.getElementById('tcFecha');
     if (tcEl) tcEl.textContent = 'cargando...';
 
-    // Obtener TC DOF oficial de Banxico (serie SF43718) via proxy CORS
-    // Usamos api.banxico.org.mx con el endpoint público sin token
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth()+1).padStart(2,'0');
     const dd = String(today.getDate()).padStart(2,'0');
     const fechaHoy = yyyy + '-' + mm + '-' + dd;
-    const fechaAyer = (() => {
-      const d = new Date(today); d.setDate(d.getDate()-1);
-      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    })();
 
-    // Intentar Banxico API pública (sin token, datos oportuno)
+    // ── Fuente 1: Banxico API oficial SF43718 con token ──────────
     try {
       const url = 'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno?mediaType=json';
       const resp = await fetch(url, {
-        headers: { 'Bmx-Token': '6b722e234a3e76e78c6e0d6a5b7a9d8f3c2e1b0a9876543210fedcba98765432' }
+        headers: { 'Bmx-Token': '544cc7ee5728e46061f229e6a1551d5a0e2aeda388dcb5eda15c5ceacf2f6c9f' }
       });
       if (resp.ok) {
         const data = await resp.json();
         const dato = data?.bmx?.series?.[0]?.datos?.[0]?.dato;
+        const fecha = data?.bmx?.series?.[0]?.datos?.[0]?.fecha;
         if (dato && dato !== 'N/E') {
           tcDOF = parseFloat(dato);
-          tcFechaStr = data?.bmx?.series?.[0]?.datos?.[0]?.fecha || fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico SF43718 (DOF oficial)'; }
+          tcFechaStr = fecha || fechaHoy;
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico SF43718 DOF oficial'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats();
           return;
         }
       }
-    } catch(e) { console.warn('Banxico API failed:', e); }
+    } catch(e) { console.warn('Banxico token fetch failed:', e); }
 
-    // Usar Claude API para buscar el TC DOF actual
+    // ── Fuente 2: Frankfurter (ECB, gratuito, sin CORS) ──────────
     try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 100,
-          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-          messages: [{ role: 'user', content: 'What is the Banxico FIX DOF exchange rate USD MXN today ' + fechaHoy + '? Reply ONLY with the number, example: 17.4157' }]
-        })
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-        const match = text.match(/\b(1[5-9]|2[0-4])\.\d{2,4}\b/);
-        if (match) {
-          tcDOF = parseFloat(match[0]);
-          tcFechaStr = fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Búsqueda web DOF'; }
+      const r2 = await fetch('https://api.frankfurter.app/latest?from=USD&to=MXN');
+      if (r2.ok) {
+        const d2 = await r2.json();
+        if (d2.rates && d2.rates.MXN) {
+          tcDOF = d2.rates.MXN;
+          tcFechaStr = d2.date || fechaHoy;
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Frankfurter/ECB (referencia)'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats();
           return;
         }
       }
-    } catch(e) { console.warn('Claude TC search failed:', e); }
+    } catch(e2) { console.warn('Frankfurter failed:', e2); }
 
-    // Fallback: TC DOF conocido — se actualiza manualmente con cada versión
-    tcDOF = 17.4157;
-    tcFechaStr = '09/04/2026';
-    if (tcEl) { tcEl.textContent = '$17.4157'; tcEl.title = 'TC DOF 09/04/2026 (offline)'; }
+    // ── Fuente 3: ExchangeRate-API (sin token) ───────────────────
+    try {
+      const r3 = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (r3.ok) {
+        const d3 = await r3.json();
+        if (d3.rates && d3.rates.MXN) {
+          tcDOF = d3.rates.MXN;
+          tcFechaStr = fechaHoy;
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API (referencia)'; }
+          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+          updateStats();
+          return;
+        }
+      }
+    } catch(e3) { console.warn('ER-API failed:', e3); }
+
+    // ── Fallback offline ─────────────────────────────────────────
+    tcDOF = 17.3287;
+    tcFechaStr = fechaHoy + ' (offline)';
+    if (tcEl) { tcEl.textContent = '$17.3287'; tcEl.title = 'Sin conexión — valor de referencia'; }
     if (tcFechaEl) tcFechaEl.textContent = '(offline)';
     updateStats();
   }
