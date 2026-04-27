@@ -5136,7 +5136,38 @@
         reader.onerror = () => rej();
         reader.readAsDataURL(file);
       });
-      o.files[key] = { name: file.name, data: dataURL };
+
+      // Comprimir imágenes automáticamente
+      let finalData = dataURL;
+      if (file.type.startsWith('image/')) {
+        finalData = await new Promise(res => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX = 800;
+            let w = img.width, h = img.height;
+            if (w > MAX || h > MAX) {
+              if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+              else { w = Math.round(w * MAX / h); h = MAX; }
+            }
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            res(canvas.toDataURL('image/jpeg', 0.7));
+          };
+          img.src = dataURL;
+        });
+      } else if (file.type === 'application/pdf') {
+        const sizeKB = Math.round(dataURL.length * 0.75 / 1024);
+        if (sizeKB > 700) {
+          alert('El PDF es demasiado grande (' + sizeKB + 'KB). Comprímelo en smallpdf.com antes de subirlo.');
+          return;
+        }
+      }
+      if ((JSON.stringify(o.files).length + finalData.length) > 900000) {
+        alert('Archivo muy grande para la nube. Usa un archivo más pequeño.');
+        return;
+      }
+      o.files[key] = { name: file.name, data: finalData };
 
       // Si es la columna FACTURA y es un PDF, extraer número de factura
       if (key === 'factura' && file.type === 'application/pdf') {
@@ -5167,7 +5198,7 @@
         o.status = 'Entregado';
       }
 
-      saveOrders();
+      _saveOneOrder(o);
       updateRow(id);
     };
     input.click();
@@ -5619,12 +5650,10 @@
       }));
       localStorage.setItem('b_'+(bimestreActivo||'def'), JSON.stringify(toSave));
     } catch(e) {}
-    // Save to Firestore (save each order as a document)
+    // Save to Firestore - save each order individually to avoid batch size limits
     if (!firebaseReady || !db) { setConnectionStatus('offline'); return; }
     try {
-      const batch = db.batch();
-      orders.forEach(o => {
-        const docRef = db.collection(getCollection()).doc(String(o.id));
+      for (const o of orders) {
         const toStore = {
           ...o,
           files: Object.fromEntries(
@@ -5632,13 +5661,55 @@
           ),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
-        batch.set(docRef, toStore);
-      });
-      await batch.commit();
+        await db.collection(getCollection()).doc(String(o.id)).set(toStore);
+      }
       setConnectionStatus('online');
     } catch(e) {
       console.warn('Firestore save error:', e);
       setConnectionStatus('offline');
+    }
+  }
+
+  // Save a single order to Firestore (faster, used when uploading files)
+  async function _saveOneOrder(o) {
+    // Always save full data to localStorage (no size limit)
+    try {
+      localStorage.setItem('b_'+(bimestreActivo||'def'), JSON.stringify(orders.map(x => ({
+        ...x,
+        files: Object.fromEntries(Object.entries(x.files).map(([k,v]) => [k, v ? {name:v.name,data:v.data} : null]))
+      }))));
+    } catch(e) {}
+    if (!firebaseReady || !db) { setConnectionStatus('offline'); return; }
+
+    // Try saving with full file data first
+    try {
+      const toStore = {
+        ...o,
+        files: Object.fromEntries(
+          Object.entries(o.files).map(([k, v]) => [k, v ? { name: v.name, data: v.data } : null])
+        ),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await db.collection(getCollection()).doc(String(o.id)).set(toStore);
+      setConnectionStatus('online');
+    } catch(e) {
+      // If failed (likely size limit), save without large file data
+      // Files remain in localStorage only
+      try {
+        const toStoreLight = {
+          ...o,
+          files: Object.fromEntries(
+            Object.entries(o.files).map(([k, v]) => [k, v ? { name: v.name, data: null, localOnly: true } : null])
+          ),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        await db.collection(getCollection()).doc(String(o.id)).set(toStoreLight);
+        setConnectionStatus('online');
+        console.warn('Archivo guardado solo localmente por tamaño:', e.message);
+      } catch(e2) {
+        console.warn('Save one order error:', e2);
+        setConnectionStatus('offline');
+      }
     }
   }
 
