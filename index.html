@@ -8,6 +8,7 @@
 <!-- Firebase Compat SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <style>
   :root {
     --bg: #1a1a1a;
@@ -4465,6 +4466,7 @@
     if (typeof firebase !== 'undefined') {
       if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
       db = firebase.firestore();
+      window.fbStorage = firebase.storage();
       firebaseReady = true;
     }
   } catch(e) {
@@ -5060,7 +5062,7 @@
   }
 
   function buildFileBtn(key, o, cls, label) {
-    const hasFile = o.files[key];
+    const hasFile = o.files[key] && (o.files[key].url || o.files[key].data || o.files[key].name);
     const btnClass = hasFile ? 'btn-uploaded' : cls;
     const btnLabel = hasFile ? `✓ ${label.replace(/[^\w\s]/g,'')}` : label;
     return `<button class="cell-btn ${btnClass}" onclick="openFileMenu(${o.id},'${key}',this)">${btnLabel}</button>`;
@@ -5129,53 +5131,38 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      // Leer como DataURL
-      const dataURL = await new Promise((res, rej) => {
-        const reader = new FileReader();
-        reader.onload = ev => res(ev.target.result);
-        reader.onerror = () => rej();
-        reader.readAsDataURL(file);
-      });
-
-      // Comprimir imágenes automáticamente
-      let finalData = dataURL;
-      if (file.type.startsWith('image/')) {
-        finalData = await new Promise(res => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const MAX = 800;
-            let w = img.width, h = img.height;
-            if (w > MAX || h > MAX) {
-              if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-              else { w = Math.round(w * MAX / h); h = MAX; }
-            }
-            canvas.width = w; canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            res(canvas.toDataURL('image/jpeg', 0.7));
-          };
-          img.src = dataURL;
-        });
-      } else if (file.type === 'application/pdf') {
-        const sizeKB = Math.round(dataURL.length * 0.75 / 1024);
-        if (sizeKB > 700) {
-          alert('El PDF es demasiado grande (' + sizeKB + 'KB). Comprímelo en smallpdf.com antes de subirlo.');
+      // ── SUBIR A FIREBASE STORAGE (sin límite de tamaño) ──────
+      if (window.fbStorage && firebaseReady) {
+        try {
+          setConnectionStatus('loading');
+          const path = `orders/${id}/${key}_${Date.now()}_${file.name}`;
+          const ref = window.fbStorage.ref(path);
+          await ref.put(file);
+          const url = await ref.getDownloadURL();
+          o.files[key] = { name: file.name, url: url, path: path };
+          setConnectionStatus('online');
+        } catch(storageErr) {
+          console.warn('Storage upload failed:', storageErr);
+          alert('Error al subir archivo a la nube: ' + storageErr.message);
+          setConnectionStatus('offline');
           return;
         }
+      } else {
+        // Sin Storage disponible — guardar base64 como fallback
+        const dataURL = await new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = ev => res(ev.target.result);
+          reader.onerror = () => rej();
+          reader.readAsDataURL(file);
+        });
+        o.files[key] = { name: file.name, data: dataURL };
       }
-      if ((JSON.stringify(o.files).length + finalData.length) > 900000) {
-        alert('Archivo muy grande para la nube. Usa un archivo más pequeño.');
-        return;
-      }
-      o.files[key] = { name: file.name, data: finalData };
 
       // Si es la columna FACTURA y es un PDF, extraer número de factura
       if (key === 'factura' && file.type === 'application/pdf') {
         try {
           const data = await extractPdfData(file);
-          // Usar el número extraído del PDF (busca "No. Comprobante")
           let numFactura = data.factura || '';
-          // Fallback: buscar en nombre del archivo
           if (!numFactura) {
             const nameMatch = file.name.match(/([A-Z]{1,4}\d{3,7})/i);
             if (nameMatch) numFactura = nameMatch[1].toUpperCase();
@@ -5190,11 +5177,9 @@
 
       // Auto-update STATUS based on uploaded file
       if (key === 'foto' && o.files.foto) {
-        // Evidencia subida → Instalado (solo si aún está En Proceso)
         if (o.status === 'En Proceso') o.status = 'Instalado';
       }
       if (key === 'hoja' && o.files.hoja) {
-        // Hoja de entrega subida → Entregado
         o.status = 'Entregado';
       }
 
@@ -5296,6 +5281,12 @@
     const o = orders.find(x => x.id === id);
     if (!o || !o.files[key]) return;
     const f = o.files[key];
+    // Si tiene URL de Firebase Storage, abrir en nueva pestaña
+    if (f.url) {
+      window.open(f.url, '_blank');
+      return;
+    }
+    if (!f.data) return;
     const overlay = document.getElementById('previewOverlay');
     const content = document.getElementById('previewContent');
     overlay.classList.add('open');
@@ -5685,31 +5676,20 @@
     try {
       const toStore = {
         ...o,
+        // Guardar solo url y name — NUNCA data (base64) en Firestore
         files: Object.fromEntries(
-          Object.entries(o.files).map(([k, v]) => [k, v ? { name: v.name, data: v.data } : null])
+          Object.entries(o.files).map(([k, v]) => [
+            k,
+            v ? { name: v.name, url: v.url || null, path: v.path || null } : null
+          ])
         ),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       };
       await db.collection(getCollection()).doc(String(o.id)).set(toStore);
       setConnectionStatus('online');
     } catch(e) {
-      // If failed (likely size limit), save without large file data
-      // Files remain in localStorage only
-      try {
-        const toStoreLight = {
-          ...o,
-          files: Object.fromEntries(
-            Object.entries(o.files).map(([k, v]) => [k, v ? { name: v.name, data: null, localOnly: true } : null])
-          ),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        await db.collection(getCollection()).doc(String(o.id)).set(toStoreLight);
-        setConnectionStatus('online');
-        console.warn('Archivo guardado solo localmente por tamaño:', e.message);
-      } catch(e2) {
-        console.warn('Save one order error:', e2);
-        setConnectionStatus('offline');
-      }
+      console.warn('Save one order error:', e);
+      setConnectionStatus('offline');
     }
   }
 
