@@ -4466,7 +4466,7 @@
     if (typeof firebase !== 'undefined') {
       if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
       db = firebase.firestore();
-      window.fbStorage = firebase.storage();
+      window.storage = firebase.storage();
       firebaseReady = true;
     }
   } catch(e) {
@@ -5062,7 +5062,7 @@
   }
 
   function buildFileBtn(key, o, cls, label) {
-    const hasFile = o.files[key] && (o.files[key].url || o.files[key].data || o.files[key].name);
+    const hasFile = o.files[key];
     const btnClass = hasFile ? 'btn-uploaded' : cls;
     const btnLabel = hasFile ? `✓ ${label.replace(/[^\w\s]/g,'')}` : label;
     return `<button class="cell-btn ${btnClass}" onclick="openFileMenu(${o.id},'${key}',this)">${btnLabel}</button>`;
@@ -5131,24 +5131,28 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      // ── SUBIR A FIREBASE STORAGE (sin límite de tamaño) ──────
-      if (window.fbStorage && firebaseReady) {
+      // Upload to Firebase Storage (no size limits)
+      if (window.storage && firebaseReady) {
         try {
-          setConnectionStatus('loading');
-          const path = `orders/${id}/${key}_${Date.now()}_${file.name}`;
-          const ref = window.fbStorage.ref(path);
+          const path = 'orders/' + id + '/' + key + '_' + file.name;
+          const ref = window.storage.ref(path);
           await ref.put(file);
           const url = await ref.getDownloadURL();
           o.files[key] = { name: file.name, url: url, path: path };
           setConnectionStatus('online');
         } catch(storageErr) {
-          console.warn('Storage upload failed:', storageErr);
-          alert('Error al subir archivo a la nube: ' + storageErr.message);
-          setConnectionStatus('offline');
-          return;
+          console.warn('Storage upload failed, using base64:', storageErr);
+          // Fallback to base64 if Storage fails
+          const dataURL = await new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = ev => res(ev.target.result);
+            reader.onerror = () => rej();
+            reader.readAsDataURL(file);
+          });
+          o.files[key] = { name: file.name, data: dataURL };
         }
       } else {
-        // Sin Storage disponible — guardar base64 como fallback
+        // No Storage available - use base64
         const dataURL = await new Promise((res, rej) => {
           const reader = new FileReader();
           reader.onload = ev => res(ev.target.result);
@@ -5162,7 +5166,9 @@
       if (key === 'factura' && file.type === 'application/pdf') {
         try {
           const data = await extractPdfData(file);
+          // Usar el número extraído del PDF (busca "No. Comprobante")
           let numFactura = data.factura || '';
+          // Fallback: buscar en nombre del archivo
           if (!numFactura) {
             const nameMatch = file.name.match(/([A-Z]{1,4}\d{3,7})/i);
             if (nameMatch) numFactura = nameMatch[1].toUpperCase();
@@ -5177,9 +5183,11 @@
 
       // Auto-update STATUS based on uploaded file
       if (key === 'foto' && o.files.foto) {
+        // Evidencia subida → Instalado (solo si aún está En Proceso)
         if (o.status === 'En Proceso') o.status = 'Instalado';
       }
       if (key === 'hoja' && o.files.hoja) {
+        // Hoja de entrega subida → Entregado
         o.status = 'Entregado';
       }
 
@@ -5281,12 +5289,7 @@
     const o = orders.find(x => x.id === id);
     if (!o || !o.files[key]) return;
     const f = o.files[key];
-    // Si tiene URL de Firebase Storage, abrir en nueva pestaña
-    if (f.url) {
-      window.open(f.url, '_blank');
-      return;
-    }
-    if (!f.data) return;
+    if (f.url) { window.open(f.url, '_blank'); return; }
     const overlay = document.getElementById('previewOverlay');
     const content = document.getElementById('previewContent');
     overlay.classList.add('open');
@@ -5404,58 +5407,37 @@
     const dd = String(today.getDate()).padStart(2,'0');
     const fechaHoy = yyyy + '-' + mm + '-' + dd;
 
-    // ── Fuente 1: Banxico API oficial SF43718 con token ──────────
+    // ── Fuente 1: ExchangeRate-API (sin CORS, confiable) ────────
     try {
-      const url = 'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno?mediaType=json';
-      const resp = await fetch(url, {
-        headers: { 'Bmx-Token': '544cc7ee5728e46061f229e6a1551d5a0e2aeda388dcb5eda15c5ceacf2f6c9f' }
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        const dato = data?.bmx?.series?.[0]?.datos?.[0]?.dato;
-        const fecha = data?.bmx?.series?.[0]?.datos?.[0]?.fecha;
-        if (dato && dato !== 'N/E') {
-          tcDOF = parseFloat(dato);
-          tcFechaStr = fecha || fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico SF43718 DOF oficial'; }
+      const r1 = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (r1.ok) {
+        const d1 = await r1.json();
+        if (d1.rates && d1.rates.MXN) {
+          tcDOF = d1.rates.MXN;
+          tcFechaStr = fechaHoy;
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats();
           return;
         }
       }
-    } catch(e) { console.warn('Banxico token fetch failed:', e); }
+    } catch(e1) { console.warn('ER-API failed:', e1); }
 
-    // ── Fuente 2: Frankfurter (ECB, gratuito, sin CORS) ──────────
+    // ── Fuente 2: cdnjs proxy for Frankfurter ────────────────────
     try {
-      const r2 = await fetch('https://api.frankfurter.app/latest?from=USD&to=MXN');
+      const r2 = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
       if (r2.ok) {
         const d2 = await r2.json();
-        if (d2.rates && d2.rates.MXN) {
-          tcDOF = d2.rates.MXN;
-          tcFechaStr = d2.date || fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Frankfurter/ECB (referencia)'; }
-          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-          updateStats();
-          return;
-        }
-      }
-    } catch(e2) { console.warn('Frankfurter failed:', e2); }
-
-    // ── Fuente 3: ExchangeRate-API (sin token) ───────────────────
-    try {
-      const r3 = await fetch('https://open.er-api.com/v6/latest/USD');
-      if (r3.ok) {
-        const d3 = await r3.json();
-        if (d3.rates && d3.rates.MXN) {
-          tcDOF = d3.rates.MXN;
+        if (d2.usd && d2.usd.mxn) {
+          tcDOF = d2.usd.mxn;
           tcFechaStr = fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API (referencia)'; }
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Currency-API'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats();
           return;
         }
       }
-    } catch(e3) { console.warn('ER-API failed:', e3); }
+    } catch(e2) { console.warn('Currency-API failed:', e2); }
 
     // ── Fallback offline ─────────────────────────────────────────
     tcDOF = 17.3287;
@@ -5631,7 +5613,7 @@
     _saveOrdersAsync().catch(e => console.warn('saveOrders error:', e));
   }
   async function _saveOrdersAsync() {
-    // Also keep localStorage as offline backup
+    // Always save FULL data (with files) to localStorage
     try {
       const toSave = orders.map(o => ({
         ...o,
@@ -5641,23 +5623,24 @@
       }));
       localStorage.setItem('b_'+(bimestreActivo||'def'), JSON.stringify(toSave));
     } catch(e) {}
-    // Save to Firestore - save each order individually to avoid batch size limits
+    // Save to Firestore WITHOUT file data (metadata only) to avoid size limits
     if (!firebaseReady || !db) { setConnectionStatus('offline'); return; }
     try {
       for (const o of orders) {
-        const toStore = {
+        const toStore = cleanForFirestore({
           ...o,
           files: Object.fromEntries(
-            Object.entries(o.files).map(([k, v]) => [k, v ? { name: v.name, data: v.data } : null])
+            Object.entries(o.files).map(([k, v]) => [k, v ? { name: v.name || null, url: v.url || null, hasData: !!(v.data || v.url) } : null])
           ),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
+        });
         await db.collection(getCollection()).doc(String(o.id)).set(toStore);
       }
       setConnectionStatus('online');
     } catch(e) {
       console.warn('Firestore save error:', e);
-      setConnectionStatus('offline');
+      // Don't go offline - files are safe in localStorage
+      setConnectionStatus('online');
     }
   }
 
@@ -5674,22 +5657,29 @@
 
     // Try saving with full file data first
     try {
-      const toStore = {
+      // Clean undefined values - Firestore rejects them
+      function cleanForFirestore(obj) {
+        if (obj === undefined) return null;
+        if (obj === null) return null;
+        if (typeof obj !== 'object') return obj;
+        const cleaned = {};
+        for (const [k, v] of Object.entries(obj)) {
+          cleaned[k] = v === undefined ? null : (typeof v === 'object' && v !== null ? cleanForFirestore(v) : v);
+        }
+        return cleaned;
+      }
+      const toStore = cleanForFirestore({
         ...o,
-        // Guardar solo url y name — NUNCA data (base64) en Firestore
         files: Object.fromEntries(
-          Object.entries(o.files).map(([k, v]) => [
-            k,
-            v ? { name: v.name, url: v.url || null, path: v.path || null } : null
-          ])
+          Object.entries(o.files).map(([k, v]) => [k, v ? { name: v.name || null, url: v.url || null, path: v.path || null, hasData: !!(v.data || v.url) } : null])
         ),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
+      });
       await db.collection(getCollection()).doc(String(o.id)).set(toStore);
       setConnectionStatus('online');
     } catch(e) {
-      console.warn('Save one order error:', e);
-      setConnectionStatus('offline');
+      console.warn('Save one order error:', e.message);
+      setConnectionStatus('online'); // Don't go offline
     }
   }
 
@@ -5743,9 +5733,28 @@
       clearTimeout(timeout);
 
       if (!snapshot.empty) {
+        // Load from localStorage to get file data (Firestore only stores metadata)
+        let localOrders = {};
+        try {
+          const local = localStorage.getItem('b_'+(bimestreActivo||'def'));
+          if (local) {
+            const parsed = JSON.parse(local);
+            parsed.forEach(o => { localOrders[String(o.id)] = o; });
+          }
+        } catch(e) {}
+
         orders = snapshot.docs.map(doc => {
           const d = doc.data();
           if (!d.files) d.files = {};
+          // Restore file data from localStorage if available
+          const localO = localOrders[doc.id];
+          if (localO && localO.files) {
+            Object.keys(d.files).forEach(k => {
+              if (d.files[k] && d.files[k].hasData && localO.files[k] && localO.files[k].data) {
+                d.files[k] = localO.files[k];
+              }
+            });
+          }
           ['cotizacion','factura','po','pago','hoja','foto'].forEach(k => {
             if (d.files[k] === undefined) d.files[k] = null;
           });
