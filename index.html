@@ -666,7 +666,7 @@
     <select id="bimestreSel" onchange="cambiarBimestre(this.value)"><option value="ABR-MAY_2026">▶ ABR-MAY</option></select>
     <button class="btn-bim" onclick="crearBimestre()">+ Nuevo período</button>
     <button class="btn-bim btn-bim-del" id="btnEliminarBim" onclick="eliminarBimestre()" style="display:none;">🗑 Eliminar</button>
-    <button class="btn-bim" onclick="document.getElementById(&#39;chartModal&#39;).classList.add(&#39;open&#39;)">📊 Gráfica</button>
+    <button class="btn-bim" onclick="document.getElementById(&#39;chartModal&#39;).classList.add(&#39;open&#39;);drawChart();">📊 Gráfica</button>
     <button class="btn-bim" onclick="openVentasAnuales()" style="background:#1a3a5c;">📈 Ventas Bimestrales</button>
     <span id="bimestreBadge"></span>
   </div>
@@ -5109,11 +5109,13 @@
 
   // ── FILE HANDLING ────────────────────────────────────────────
   function openFileMenu(id, key, triggerEl) {
-    const o = orders.find(x => x.id === id);
-    if (o && o.files[key]) {
+    // Buscar por id numérico o string
+    let o = orders.find(x => x.id === id || x.id === Number(id) || String(x.id) === String(id));
+    if (o && o.files && o.files[key]) {
       showFileActionMenu(id, key, o, triggerEl);
       return;
     }
+    // Si no encontró la orden, abrir selector de archivo igual
     uploadFile(id, key, o);
   }
 
@@ -5161,7 +5163,8 @@
   }
 
   function uploadFile(id, key, o) {
-    if (!o) o = orders.find(x => x.id === id);
+    if (!o) o = orders.find(x => x.id === id || x.id === Number(id) || String(x.id) === String(id));
+    if (!o) { console.warn('Orden no encontrada:', id); }
     const input = document.createElement('input');
     input.type = 'file';
     if (key === 'foto') input.accept = 'image/*,.pdf';
@@ -6173,7 +6176,7 @@
   async function renderVentasAnuales() {
     const wrap = document.getElementById('vaBarsWrap');
     const summary = document.getElementById('vaSummary');
-    wrap.innerHTML = '<div style="color:#888;font-family:'Barlow Condensed',sans-serif;font-size:13px;padding:20px;margin:auto;">Cargando datos...</div>';
+    wrap.innerHTML = '<div style="color:#888;font-family:Barlow Condensed,sans-serif;font-size:13px;padding:20px;margin:auto;">Cargando datos...</div>';
     summary.innerHTML = '';
 
     // Collect data per bimestre
