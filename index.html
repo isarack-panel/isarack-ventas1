@@ -4422,16 +4422,12 @@
   <div id="ventasAnualesBox">
     <h3>📈 VENTAS BIMESTRALES</h3>
     <p class="va-subtitle">Comportamiento anual · Año fiscal ABR–MAR</p>
-    <div class="va-legend">
-      <span><span class="va-legend-dot" style="background:#3b82f6;"></span>Ventas DLLS</span>
-      <span><span class="va-legend-dot" style="background:#f59e0b;"></span>Ventas MXN</span>
-      <span><span class="va-legend-dot" style="background:#4ade80;"></span>Comisiones</span>
+    <div style="display:flex;gap:24px;justify-content:center;margin-bottom:14px;">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;color:#ccc;display:flex;align-items:center;gap:7px;"><span style="display:inline-block;width:28px;height:3px;background:#e74c3c;border-radius:2px;"></span>Total vendido</span>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;color:#ccc;display:flex;align-items:center;gap:7px;"><span style="display:inline-block;width:28px;height:3px;background:#2ecc71;border-radius:2px;"></span>Cobrado</span>
     </div>
-    <div class="va-bars-wrap" id="vaBarsWrap"></div>
-    <div style="display:flex;justify-content:space-between;padding:0 8px;">
-      <span id="vaBarLabels" style="display:flex;gap:10px;flex:1;"></span>
-    </div>
-    <div class="va-summary" id="vaSummary"></div>
+    <canvas id="vaBimCanvas" width="660" height="280" style="width:100%;display:block;"></canvas>
+    <div id="vaBimLegend" style="margin-top:14px;display:flex;gap:20px;justify-content:center;flex-wrap:wrap;"></div>
     <div style="text-align:center;margin-top:18px;">
       <button class="btn-chart" onclick="document.getElementById('ventasAnualesModal').classList.remove('open')">Cerrar</button>
     </div>
@@ -6042,7 +6038,8 @@
     const last = bimestres[bimestres.length - 1];
     const idx = BIM_ORDEN.indexOf(last.nombre);
     const nextN = idx === BIM_ORDEN.length-1 ? BIM_ORDEN[0] : BIM_ORDEN[idx+1];
-    const nextA = last.nombre === 'DIC-ENE' ? last.año+1 : last.año;
+    const lastAño = last.año || new Date().getFullYear();
+    const nextA = last.nombre === 'DIC-ENE' ? lastAño+1 : lastAño;
     const id = nextN + '_' + nextA;
     if (bimestres.find(b => b.id === id)) { alert('Ese periodo ya existe.'); return; }
     if (!confirm('Crear periodo: ' + nextN + ' ' + nextA + '. Las ordenes sin pagar se copian al nuevo periodo. Las del periodo anterior se conservan. Continuar?')) return;
@@ -6086,9 +6083,18 @@
 
     ctx.clearRect(0,0,260,260);
     const cx=130, cy=130, r=110;
+    if (total === 0) {
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI);
+      ctx.fillStyle='#333'; ctx.fill();
+      ctx.fillStyle='#888'; ctx.font='14px sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('Sin ordenes', cx, cy);
+      document.getElementById('chartLegend').innerHTML = '';
+      return;
+    }
     const data = [
-      { val: pagadas, color: '#28a745', label: 'Pagadas' },
-      { val: pendientes, color: '#c0392b', label: 'Pendientes' }
+      { val: pagadas, color: '#28a745' },
+      { val: pendientes, color: '#c0392b' }
     ];
     let start = -Math.PI/2;
     data.forEach(d => {
@@ -6099,13 +6105,11 @@
       ctx.closePath(); ctx.fillStyle = d.color; ctx.fill();
       start += slice;
     });
-    // Center text
     ctx.fillStyle='#fff'; ctx.font='bold 28px Barlow Condensed,sans-serif';
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(pctPag+'%', cx, cy-10);
     ctx.font='13px Barlow Condensed,sans-serif'; ctx.fillStyle='#aaa';
     ctx.fillText('cobrado', cx, cy+16);
-
     document.getElementById('chartLegend').innerHTML =
       '<span style="background:#28a745"></span>' + pagadas + ' Pagadas (' + pctPag + '%)&nbsp;&nbsp;' +
       '<span style="background:#c0392b"></span>' + pendientes + ' Pendientes (' + pctPen + '%)';
@@ -6121,6 +6125,7 @@
   const chartObs = new MutationObserver(() => {
     if (document.getElementById('chartModal').classList.contains('open')) drawChart();
   });
+  chartObs.observe(document.getElementById('chartModal'), {attributes:true, attributeFilter:['class']});
 
   // ── DATOS RECUPERADOS ────────────────────────────────────────
   window._recoveredOrders = [{"id": 1700000000000, "odoo": "S05931", "facturaNum": "A4366", "cliente": "SEICA", "dlls": 2849.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000001000, "odoo": "S06195", "facturaNum": "A4383", "cliente": "SPINERGY", "dlls": 21575.8, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000002000, "odoo": "S06331", "facturaNum": "A4330", "cliente": "INDUSTRAS HUNTER S,A DE C,V", "dlls": 1033.6, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000003000, "odoo": "S06369", "facturaNum": "A4407", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 15366.32, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000004000, "odoo": "S06438", "facturaNum": "A4331", "cliente": "INDUSTRAS HUNTER S,A DE C,V", "dlls": 45960.19, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000005000, "odoo": "S06502", "facturaNum": "A4228", "cliente": "Gambro Renal Products S.A. de C.V.", "dlls": 4278.18, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000006000, "odoo": "S06533", "facturaNum": "A4408", "cliente": "RM EQUIPOS Y MUEBLES", "dlls": 56187.5, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000007000, "odoo": "S06553", "facturaNum": "A4394", "cliente": "CUBRETEX", "dlls": 2212.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000008000, "odoo": "S06602", "facturaNum": "A4314", "cliente": "WS DISPLAY", "dlls": 661.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000009000, "odoo": "S06643", "facturaNum": "A4314", "cliente": "THERMOMETRICS MEXICO SA DE CV", "dlls": 1460.5, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000010000, "odoo": "S06663", "facturaNum": "A4333", "cliente": "SPINERGY", "dlls": 9987.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000011000, "odoo": "S06667", "facturaNum": "A4348", "cliente": "Frutas y Verduras San Miguel S.A. de C.V", "dlls": 508.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000012000, "odoo": "S06695", "facturaNum": "A4396", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 1650.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000013000, "odoo": "S06746", "facturaNum": "A4395", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 1018.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000014000, "odoo": "S06763", "facturaNum": "A4386", "cliente": "PANASONIC", "dlls": 290.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000015000, "odoo": "S06764", "facturaNum": "A4386", "cliente": "PANASONIC", "dlls": 231.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000016000, "odoo": "S06769", "facturaNum": "A4367", "cliente": "Inventus Power, INVENTUS POWER", "dlls": 819.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000017000, "odoo": "S06781", "facturaNum": "A4379", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 270.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000018000, "odoo": "S06785", "facturaNum": "A4380", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 50.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000019000, "odoo": "S06813", "facturaNum": "A4404", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV CUATO PANEL", "dlls": 3393.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000020000, "odoo": "S06820", "facturaNum": "", "cliente": "MOTORMAN DE BAJA CALIFORNIA SA DE CV", "dlls": 5342.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000021000, "odoo": "S06841", "facturaNum": "A4401", "cliente": "WS DISPLAY", "dlls": 6290.4, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000022000, "odoo": "S06842", "facturaNum": "A4378", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 1056.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000023000, "odoo": "S06846", "facturaNum": "A4377", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 102.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000024000, "odoo": "S06863", "facturaNum": "A4381", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 3600.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000025000, "odoo": "S06926", "facturaNum": "A4411", "cliente": "TAKA GUITARRAS", "dlls": 295.6, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000026000, "odoo": "S06950", "facturaNum": "A4410", "cliente": "RM EQUIPOS Y MUEBLES", "dlls": null, "pesos": 56559.09, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000027000, "odoo": "S06972", "facturaNum": "A4329", "cliente": "INDUSTRAS HUNTER S,A DE C,V", "dlls": 114.89, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000028000, "odoo": "S06983", "facturaNum": "A4405", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 339.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000029000, "odoo": "S06984", "facturaNum": "A4390", "cliente": "Westlake", "dlls": 375.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000030000, "odoo": "S05904", "facturaNum": "A4402", "cliente": "WS DISPLAY", "dlls": 24569.6, "pesos": null, "ing": "2026-04-14", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000031000, "odoo": "S06605", "facturaNum": "", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 1580.0, "pesos": null, "ing": "2026-04-14", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000032000, "odoo": "S06364", "facturaNum": "A4228", "cliente": "THERMOMETRICS", "dlls": null, "pesos": 5754.8, "ing": "2026-04-16", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000033000, "odoo": "S06963", "facturaNum": "A4422", "cliente": "RM EQUIPOS Y MUEBLES", "dlls": null, "pesos": 22267.24, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-07", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": "recovered", "hoja": null, "foto": null}}, {"id": 1700000034000, "odoo": "S06999", "facturaNum": "A4419", "cliente": "Ferretera Centenario", "dlls": null, "pesos": 82247.65, "ing": "2026-04-16", "bimestre": "ABR-MAY_2026", "pct": 1.3, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-15", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": "recovered", "hoja": null, "foto": null}}, {"id": 1700000035000, "odoo": "S07009", "facturaNum": "A4420", "cliente": "Ferretera Centenario", "dlls": null, "pesos": 54832.05, "ing": "2026-04-16", "bimestre": "ABR-MAY_2026", "pct": 1.3, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-15", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": "recovered", "hoja": null, "foto": null}}, {"id": 1700000036000, "odoo": "S06994", "facturaNum": "A4418", "cliente": "BRANDON MENDOZA", "dlls": 635.21, "pesos": null, "ing": "2026-04-17", "bimestre": "ABR-MAY_2026", "pct": 1.6, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-09", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": "recovered", "hoja": null, "foto": null}}, {"id": 1700000037000, "odoo": "S07016", "facturaNum": "A4424", "cliente": "BRANDON MENDOZA", "dlls": 6128.1, "pesos": null, "ing": "2026-04-17", "bimestre": "ABR-MAY_2026", "pct": 1.6, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-16", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": "recovered", "po": null, "pago": "recovered", "hoja": null, "foto": null}}, {"id": 1700000038000, "odoo": "S06913", "facturaNum": "", "cliente": "VENTA GENERAL", "dlls": 6295.65, "pesos": null, "ing": "2026-04-20", "bimestre": "ABR-MAY_2026", "pct": 1.3, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-20", "pub": "No Publicado", "observaciones": "ANTICIPO 3306.5 RESTAN 3601.44", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": "recovered", "hoja": null, "foto": null}}];
@@ -6130,7 +6135,6 @@
   // DATOS RECUPERADOS DE CAPTURAS DE PANTALLA
   window._recoveredOrders = [{"id": 1700000000000, "odoo": "S06911", "facturaNum": "", "cliente": "PANASONIC", "dlls": 20118.52, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 1.9, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "PO PENDIENTE", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000001000, "odoo": "S06912", "facturaNum": "", "cliente": "PANASONIC", "dlls": null, "pesos": 34549.57, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "FACTURAR ANTES DEL 22 ABRIL", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000002000, "odoo": "S06965", "facturaNum": "", "cliente": "PLASCO", "dlls": null, "pesos": 22161.92, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "VERIFICAR FECHA DE ENTREGA", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000003000, "odoo": "S05904", "facturaNum": "A4402", "cliente": "WS DISPLAY", "dlls": 24569.6, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "REVIZAS POSIBLE REFACTURACION", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000004000, "odoo": "S05931", "facturaNum": "A4366", "cliente": "SEICA", "dlls": 2849.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000005000, "odoo": "S06195", "facturaNum": "A4383", "cliente": "SPINERGY", "dlls": 21575.8, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000006000, "odoo": "S06331", "facturaNum": "A4330", "cliente": "INDUSTRAS HUNTER S,A DE C,V", "dlls": 1033.6, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000007000, "odoo": "S06997", "facturaNum": "", "cliente": "BRANDON MENDOZA", "dlls": null, "pesos": 29537.43, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 1.6, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000008000, "odoo": "S06364", "facturaNum": "", "cliente": "THERMOMETRICS", "dlls": null, "pesos": 56000.0, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000009000, "odoo": "S06369", "facturaNum": "", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 15366.32, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000010000, "odoo": "S06438", "facturaNum": "", "cliente": "INDUSTRAS HUNTER S,A DE C,V", "dlls": 45960.19, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000011000, "odoo": "S06502", "facturaNum": "", "cliente": "Gambro Renal Products S.A. de C.V.", "dlls": 4278.18, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000012000, "odoo": "S06533", "facturaNum": "", "cliente": "RM EQUIPOS Y MUEBLES", "dlls": 56187.5, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000013000, "odoo": "S06553", "facturaNum": "", "cliente": "CUBRETEX", "dlls": 2212.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000014000, "odoo": "S06602", "facturaNum": "", "cliente": "WS DISPLAY", "dlls": 661.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000015000, "odoo": "S06643", "facturaNum": "", "cliente": "THERMOMETRICS MEXICO SA DE CV", "dlls": 1460.5, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000016000, "odoo": "S06663", "facturaNum": "", "cliente": "SPINERGY", "dlls": 9987.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000017000, "odoo": "S06667", "facturaNum": "", "cliente": "Frutas y Verduras San Miguel S.A. de C.V", "dlls": 508.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000018000, "odoo": "S06695", "facturaNum": "", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 1650.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000019000, "odoo": "S06697", "facturaNum": "", "cliente": "Westlake", "dlls": 4597.31, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000020000, "odoo": "S06746", "facturaNum": "", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 1018.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000021000, "odoo": "S06758", "facturaNum": "", "cliente": "Westlake", "dlls": 1970.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000022000, "odoo": "S06763", "facturaNum": "", "cliente": "PANASONIC", "dlls": 290.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000023000, "odoo": "S06764", "facturaNum": "", "cliente": "PANASONIC", "dlls": 231.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000024000, "odoo": "S06769", "facturaNum": "", "cliente": "Inventus Power INVENTUS POWER", "dlls": 819.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000025000, "odoo": "S06781", "facturaNum": "", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 270.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000026000, "odoo": "S06785", "facturaNum": "", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 50.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000027000, "odoo": "S06813", "facturaNum": "", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 3393.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000028000, "odoo": "S06820", "facturaNum": "", "cliente": "MOTORMAN DE BAJA CALIFORNIA SA DE CV", "dlls": 5342.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000029000, "odoo": "S06841", "facturaNum": "", "cliente": "WS DISPLAY", "dlls": 6290.4, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000030000, "odoo": "S06842", "facturaNum": "", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 1056.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000031000, "odoo": "S06846", "facturaNum": "A4377", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 102.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000032000, "odoo": "S06863", "facturaNum": "", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 3600.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000033000, "odoo": "S06926", "facturaNum": "", "cliente": "TAKA GUITARRAS", "dlls": 295.6, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000034000, "odoo": "S06950", "facturaNum": "", "cliente": "RM EQUIPOS Y MUEBLES", "dlls": null, "pesos": 56559.09, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000035000, "odoo": "S06972", "facturaNum": "", "cliente": "INDUSTRAS HUNTER S,A DE C,V", "dlls": 114.89, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000036000, "odoo": "S06983", "facturaNum": "", "cliente": "ENCORE AEROSPACE MEXICO S DE RL DE CV", "dlls": 339.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000037000, "odoo": "S06984", "facturaNum": "", "cliente": "Westlake", "dlls": 375.0, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": true, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": null, "hoja": null, "foto": null}}, {"id": 1700000038000, "odoo": "S06963", "facturaNum": "A4422", "cliente": "RM EQUIPOS Y MUEBLES", "dlls": null, "pesos": 22267.24, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 2.2, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-07", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": "recovered", "hoja": null, "foto": null}}, {"id": 1700000039000, "odoo": "S06999", "facturaNum": "A4419", "cliente": "Ferretera Centenario", "dlls": null, "pesos": 82247.65, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 1.3, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-15", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": "recovered", "hoja": null, "foto": null}}, {"id": 1700000040000, "odoo": "S07009", "facturaNum": "A4420", "cliente": "Ferretera Centenario", "dlls": null, "pesos": 54832.05, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 1.3, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-15", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": "recovered", "hoja": null, "foto": null}}, {"id": 1700000041000, "odoo": "S06994", "facturaNum": "A4418", "cliente": "BRANDON MENDOZA", "dlls": 635.21, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 1.6, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-09", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": "recovered", "hoja": null, "foto": null}}, {"id": 1700000042000, "odoo": "S07016", "facturaNum": "A4424", "cliente": "BRANDON MENDOZA", "dlls": 6128.1, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 1.6, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-16", "pub": "No Publicado", "observaciones": "", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": "recovered", "hoja": null, "foto": null}}, {"id": 1700000043000, "odoo": "S06913", "facturaNum": "", "cliente": "VENTA GENERAL", "dlls": 6295.65, "pesos": null, "ing": "2026-04-13", "bimestre": "ABR-MAY_2026", "pct": 1.3, "pctCustom": null, "anticipoPct": 100, "fechaPago": "2026-04-08", "pub": "No Publicado", "observaciones": "ANTICIPO 3306.5 RESTAN 3601.44", "facturaSolicitada": false, "status": "En Proceso", "files": {"cotizacion": null, "factura": null, "po": null, "pago": "recovered", "hoja": null, "foto": null}}];
   loadBimestres().then(() => loadOrders());
-  chartObs.observe(document.getElementById('chartModal'), {attributes:true, attributeFilter:['class']});
   fetchTipoCambio();
   setInterval(fetchTipoCambio, 60 * 60 * 1000);
 
@@ -6174,122 +6178,104 @@
   }
 
   async function renderVentasAnuales() {
-    const wrap = document.getElementById('vaBarsWrap');
-    const summary = document.getElementById('vaSummary');
-    wrap.innerHTML = '<div style="color:#888;font-family:Barlow Condensed,sans-serif;font-size:13px;padding:20px;margin:auto;">Cargando datos...</div>';
-    summary.innerHTML = '';
-
-    // Collect data per bimestre
-    const data = [];
-    let maxVal = 0;
+    const canvas = document.getElementById('vaBimCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     const TC = parseFloat(document.getElementById('tipoCambio')?.textContent?.replace('$','') || '17.5');
 
-    // Construir lista de bimestres del año fiscal a mostrar
-    const bimAño = BIM_ORDEN.map(k => ({ key: k, label: BIMESTRES_LABELS[k] }));
-    for (const bim of bimAño) {
-      // Try to get from Firestore
-      const orders_bim = await getAllBimestreOrders(bim.key);
-      
-      // Also check if current bimestre matches
-      let cur = [];
-      if (bimestreActivo && bimestreActivo.startsWith(bim.key)) {
-        cur = orders; // use loaded orders
-      }
-      const combined = orders_bim.length ? orders_bim : cur;
-
-      let totalDlls = 0, totalMxn = 0, totalComision = 0, numOrdenes = 0;
-      combined.forEach(o => {
-        if (!o) return;
-        numOrdenes++;
-        const pct = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : (o.pct || 2.2);
-        const anticipo = (o.anticipoPct !== undefined && o.anticipoPct !== null) ? Number(o.anticipoPct) : 100;
-        if (o.dlls) {
-          totalDlls += Number(o.dlls);
-          totalComision += Number(o.dlls) * (pct / 100) * (anticipo / 100);
-        } else if (o.pesos) {
-          totalMxn += Number(o.pesos);
-          totalComision += Number(o.pesos) * (pct / 100) * (anticipo / 100);
+    // Recopilar datos por bimestre
+    const bimData = [];
+    for (const key of BIM_ORDEN) {
+      const bimObj = bimestres.find(b => b.nombre === key);
+      let ords = [];
+      if (bimObj) {
+        if (bimObj.id === bimestreActivo) {
+          ords = orders;
+        } else if (typeof db !== 'undefined' && db) {
+          try {
+            const col = bimObj.id === 'ABR-MAY_2026' ? 'orders' : 'orders_' + bimObj.id.replace(/[^a-zA-Z0-9]/g,'_');
+            const snap = await db.collection(col).get();
+            snap.forEach(d => ords.push(d.data()));
+          } catch(e) {}
         }
+      }
+      let total = 0, cobrado = 0;
+      ords.forEach(o => {
+        const mxn = o.dlls ? o.dlls * TC : (o.pesos || 0);
+        total += mxn;
+        if (o.fechaPago && o.files && o.files.pago) cobrado += mxn;
       });
+      bimData.push({ key, total, cobrado, n: ords.length });
+    }
 
-      // Normalize to MXN equivalent for bar height comparison
-      const mxnEquiv = (totalDlls * TC) + totalMxn;
-      maxVal = Math.max(maxVal, mxnEquiv, totalComision * TC > 0 ? totalComision * TC : totalComision);
+    // Canvas setup
+    const W = canvas.width, H = canvas.height;
+    const PAD = { top:24, right:24, bottom:48, left:80 };
+    const cW = W - PAD.left - PAD.right;
+    const cH = H - PAD.top - PAD.bottom;
+    const maxY = Math.max(...bimData.map(d => d.total), 1);
+    const n = bimData.length;
 
-      data.push({ 
-        label: bim.label, key: bim.key, 
-        dlls: totalDlls, mxn: totalMxn, 
-        comision: totalComision, mxnEquiv, 
-        numOrdenes,
-        isCurrent: !!(bimestreActivo && bimestreActivo.startsWith(bim.key))
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0f1923';
+    ctx.fillRect(0,0,W,H);
+
+    // Grid
+    for (let i=0; i<=4; i++) {
+      const y = PAD.top + (cH/4)*i;
+      ctx.strokeStyle = '#1e2d3d'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(PAD.left,y); ctx.lineTo(PAD.left+cW,y); ctx.stroke();
+      const val = maxY*(1-i/4);
+      ctx.fillStyle='#4a6070'; ctx.font='11px sans-serif'; ctx.textAlign='right';
+      ctx.fillText('$'+(val>=1000000?(val/1000000).toFixed(1)+'M':val>=1000?(val/1000).toFixed(0)+'K':val.toFixed(0)), PAD.left-8, y+4);
+    }
+
+    // X labels
+    bimData.forEach((d,i) => {
+      const x = PAD.left + (i/(n-1))*cW;
+      ctx.fillStyle = bimestres.find(b=>b.nombre===d.key) ? '#ccc' : '#3a4a5a';
+      ctx.font = 'bold 11px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(d.key.replace('-',' '), x, H-PAD.bottom+16);
+      ctx.font='10px sans-serif'; ctx.fillStyle='#4a6070';
+      ctx.fillText(d.n>0?d.n+' órd':'—', x, H-PAD.bottom+30);
+    });
+
+    // Draw line
+    function drawLine(pts, color, filled) {
+      if (pts.every(p=>p===0)) return;
+      ctx.beginPath();
+      ctx.strokeStyle = color; ctx.lineWidth=2.5; ctx.lineJoin='round';
+      pts.forEach((p,i) => {
+        const x = PAD.left+(i/(n-1))*cW;
+        const y = PAD.top+cH*(1-p/maxY);
+        i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+      // Dots
+      pts.forEach((p,i) => {
+        if (p===0) return;
+        const x = PAD.left+(i/(n-1))*cW;
+        const y = PAD.top+cH*(1-p/maxY);
+        ctx.beginPath(); ctx.arc(x,y,5,0,2*Math.PI);
+        ctx.fillStyle=color; ctx.fill();
+        ctx.strokeStyle='#0f1923'; ctx.lineWidth=2; ctx.stroke();
+        // Value label
+        ctx.fillStyle='#fff'; ctx.font='bold 10px sans-serif'; ctx.textAlign='center';
+        const fmt = p>=1000000?'$'+(p/1000000).toFixed(1)+'M':'$'+(p/1000).toFixed(0)+'K';
+        ctx.fillText(fmt, x, y-10);
       });
     }
 
-    if (maxVal === 0) maxVal = 1;
+    drawLine(bimData.map(d=>d.total), '#e74c3c');
+    drawLine(bimData.map(d=>d.cobrado), '#2ecc71');
 
-    // Build bars
-    wrap.innerHTML = '';
-    data.forEach(d => {
-      const heightDlls = d.dlls > 0 ? Math.max(4, Math.round((d.dlls * TC / maxVal) * 200)) : 0;
-      const heightMxn = d.mxn > 0 ? Math.max(4, Math.round((d.mxn / maxVal) * 200)) : 0;
-      const heightCom = d.comision > 0 ? Math.max(4, Math.round((d.comision / maxVal) * 200)) : 0;
-
-      const fmtDlls = d.dlls > 0 ? '$' + d.dlls.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' USD' : '—';
-      const fmtMxn = d.mxn > 0 ? '$' + d.mxn.toLocaleString('es-MX', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' MXN' : '—';
-      const fmtCom = d.comision > 0 ? '$' + d.comision.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
-
-      const hasData = d.dlls > 0 || d.mxn > 0;
-      const borderStyle = d.isCurrent ? 'outline:2px solid #facc15;border-radius:6px;' : '';
-
-      const group = document.createElement('div');
-      group.className = 'va-bar-group';
-      group.style = borderStyle + 'padding:0 2px;';
-      group.innerHTML = `
-        <div style="display:flex;gap:3px;align-items:flex-end;height:200px;">
-          ${d.dlls > 0 ? `<div class="va-bar" style="height:${heightDlls}px;background:#3b82f6;flex:1;" data-tip="DLLS: ${fmtDlls}"></div>` : '<div style="flex:1;"></div>'}
-          ${d.mxn > 0 ? `<div class="va-bar" style="height:${heightMxn}px;background:#f59e0b;flex:1;" data-tip="MXN: ${fmtMxn}"></div>` : '<div style="flex:1;"></div>'}
-          ${d.comision > 0 ? `<div class="va-bar" style="height:${heightCom}px;background:#4ade80;flex:1;" data-tip="Comisión: ${fmtCom}"></div>` : '<div style="flex:1;"></div>'}
-        </div>
-        <div class="va-bar-label" style="${d.isCurrent ? 'color:#facc15;font-weight:700;' : ''}">${d.label.replace('\n','<br>')}</div>
-        ${hasData ? `<div class="va-bar-val">${d.numOrdenes} órd.</div>` : '<div class="va-bar-val" style="color:#555;">Sin datos</div>'}
-      `;
-      wrap.appendChild(group);
-    });
-
-    // Summary cards
-    const totalOrd = data.reduce((a,d) => a + d.numOrdenes, 0);
-    const totalDllsAll = data.reduce((a,d) => a + d.dlls, 0);
-    const totalMxnAll = data.reduce((a,d) => a + d.mxn, 0);
-    const totalComAll = data.reduce((a,d) => a + d.comision, 0);
-    const bestBim = data.reduce((best, d) => d.mxnEquiv > best.mxnEquiv ? d : best, data[0]);
-
-    summary.innerHTML = `
-      <div class="va-card">
-        <div class="va-card-label">Total Órdenes Año</div>
-        <div class="va-card-val" style="color:#60a5fa;">${totalOrd}</div>
-        <div class="va-card-sub">en 6 bimestres</div>
-      </div>
-      <div class="va-card">
-        <div class="va-card-label">Ventas USD (Año)</div>
-        <div class="va-card-val" style="color:#3b82f6;">$${totalDllsAll.toLocaleString('en-US',{maximumFractionDigits:0})}</div>
-        <div class="va-card-sub">dólares acumulados</div>
-      </div>
-      <div class="va-card">
-        <div class="va-card-label">Ventas MXN (Año)</div>
-        <div class="va-card-val" style="color:#f59e0b;">$${totalMxnAll.toLocaleString('es-MX',{maximumFractionDigits:0})}</div>
-        <div class="va-card-sub">pesos acumulados</div>
-      </div>
-      <div class="va-card">
-        <div class="va-card-label">Comisiones (Año)</div>
-        <div class="va-card-val">$${totalComAll.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-        <div class="va-card-sub">total estimado</div>
-      </div>
-      <div class="va-card">
-        <div class="va-card-label">Mejor Bimestre</div>
-        <div class="va-card-val" style="color:#facc15;font-size:15px;">${bestBim.numOrdenes > 0 ? bestBim.key : '—'}</div>
-        <div class="va-card-sub">${bestBim.numOrdenes > 0 ? bestBim.numOrdenes + ' órdenes' : 'sin datos aún'}</div>
-      </div>
-    `;
+    // Legend totals
+    const totTotal = bimData.reduce((a,d)=>a+d.total,0);
+    const totCob   = bimData.reduce((a,d)=>a+d.cobrado,0);
+    const fmt = v => v>=1000000?'$'+(v/1000000).toFixed(2)+'M':'$'+(v/1000).toFixed(1)+'K';
+    document.getElementById('vaBimLegend').innerHTML =
+      '<span style="color:#e74c3c;font-family:Barlow Condensed,sans-serif;font-size:13px;">🔴 Total vendido: <b>'+fmt(totTotal)+'</b> MXN</span>' +
+      '<span style="color:#2ecc71;font-family:Barlow Condensed,sans-serif;font-size:13px;">🟢 Cobrado: <b>'+fmt(totCob)+'</b> MXN</span>';
   }
 
 </script>
