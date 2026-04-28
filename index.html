@@ -663,7 +663,7 @@
   </div>
   <div id="bimestreWrap">
     <span class="blabel">📅 PERÍODO:</span>
-    <select id="bimestreSel" onchange="cambiarBimestre(this.value)"></select>
+    <select id="bimestreSel" onchange="cambiarBimestre(this.value)"><option value="ABR-MAY_2026">▶ ABR-MAY</option></select>
     <button class="btn-bim" onclick="crearBimestre()">+ Nuevo período</button>
     <button class="btn-bim btn-bim-del" id="btnEliminarBim" onclick="eliminarBimestre()" style="display:none;">🗑 Eliminar</button>
     <button class="btn-bim" onclick="document.getElementById(&#39;chartModal&#39;).classList.add(&#39;open&#39;)">📊 Gráfica</button>
@@ -5949,36 +5949,57 @@
   }
 
   async function loadBimestres() {
-    bimestres = [{ id: 'ABR-MAY_2026', nombre: 'ABR-MAY', año: 2026 }];
+    const BASE = { id: 'ABR-MAY_2026', nombre: 'ABR-MAY', año: 2026 };
+
+    // PASO 1: Arrancar inmediatamente con BASE + localStorage para que el selector no quede vacío
+    bimestres = [BASE];
     bimestreActivo = 'ABR-MAY_2026';
     try {
+      const local = localStorage.getItem('isarack_bimestres');
+      if (local) {
+        const parsed = JSON.parse(local);
+        const extras = (parsed.bimestres || []).filter(b =>
+          b.id !== 'ABR-MAY_2026' && b.nombre && BIM_ORDEN.includes(b.nombre)
+        );
+        bimestres = [BASE, ...extras];
+        const activo = parsed.bimestreActivo || 'ABR-MAY_2026';
+        bimestreActivo = bimestres.find(b => b.id === activo) ? activo : 'ABR-MAY_2026';
+      }
+    } catch(e) {}
+    renderBimestreSel(); // Mostrar selector YA, sin esperar Firebase
+
+    // PASO 2: Enriquecer desde Firestore si está disponible
+    try {
       if (typeof firebaseReady !== 'undefined' && firebaseReady && db) {
-        const timeoutP = new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 5000));
+        const timeoutP = new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 4000));
         const doc = await Promise.race([db.collection('config').doc('bimestres').get(), timeoutP]);
         if (doc.exists) {
           const d = doc.data();
-          const extra = (d.bimestres || [])
-            .filter(b => b.id !== 'ABR-MAY_2026' && b.nombre && BIM_ORDEN.includes(b.nombre));
-          if (extra.length) {
-            bimestres = [{ id: 'ABR-MAY_2026', nombre: 'ABR-MAY', año: 2026 }, ...extra];
-            bimestreActivo = bimestres[bimestres.length - 1].id;
-          }
+          const extras = (d.bimestres || []).filter(b =>
+            b.id !== 'ABR-MAY_2026' && b.nombre && BIM_ORDEN.includes(b.nombre)
+          );
+          bimestres = [BASE, ...extras];
+          const activo = d.bimestreActivo || 'ABR-MAY_2026';
+          bimestreActivo = bimestres.find(b => b.id === activo) ? activo : 'ABR-MAY_2026';
+          renderBimestreSel(); // Actualizar si Firestore trajo más datos
         }
       }
-    } catch(e) { console.warn('loadBimestres:', e.message); }
-    saveBimestres();
-    renderBimestreSel();
+    } catch(e) { console.warn('loadBimestres Firestore:', e.message); }
+
+    try { localStorage.setItem('isarack_bimestres', JSON.stringify({ bimestres, bimestreActivo })); } catch(e) {}
   }
 
   function renderBimestreSel() {
     const sel = document.getElementById('bimestreSel');
     if (!sel) return;
     sel.innerHTML = '';
-    bimestres.forEach((b, i) => {
+    bimestres.forEach(b => {
       const opt = document.createElement('option');
       opt.value = b.id;
-      opt.textContent = (i === bimestres.length-1 ? '▶ ' : '📁 ') + b.nombre + ' ' + b.año;
-      if (b.id === bimestreActivo) opt.selected = true;
+      const esCurrent = b.id === bimestreActivo;
+      const label = bimestres.length > 1 ? b.nombre + ' ' + b.año : b.nombre;
+      opt.textContent = (esCurrent ? '▶ ' : '📁 ') + label;
+      if (esCurrent) opt.selected = true;
       sel.appendChild(opt);
     });
     updateBimestreBadge();
@@ -6025,18 +6046,29 @@
 
     // Copiar (NO eliminar) ordenes no pagadas al nuevo periodo
     const noPagadas = orders.filter(o => !(o.fechaPago && o.files && o.files.pago));
-    const nuevas = noPagadas.map(o => ({
-      ...o, id: Date.now() + Math.floor(Math.random()*99999),
-      bimestre: id, fechaPago: '',
-      anticipoPct: o.anticipoPct || 100,
-      files: { ...o.files, pago: null }
-    }));
+    const nuevas = noPagadas.map(o => {
+      // Limpiar files: si un valor es string (ej "recovered"), dejarlo como null en el nuevo período
+      const filesLimpios = {};
+      Object.keys(o.files || {}).forEach(k => {
+        const v = o.files[k];
+        filesLimpios[k] = (v && typeof v === 'object') ? v : null;
+      });
+      filesLimpios.pago = null;
+      return {
+        ...o,
+        id: Date.now() + Math.floor(Math.random()*99999),
+        bimestre: id,
+        fechaPago: '',
+        anticipoPct: o.anticipoPct || 100,
+        files: filesLimpios
+      };
+    });
 
     bimestres.push({ id, nombre: nextN, año: nextA });
     bimestreActivo = id;
     orders = nuevas;
     saveBimestres(); saveOrders(); renderBimestreSel(); renderOrders();
-    alert('Periodo ' + nextN + ' ' + nextA + ' creado con ' + nuevas.length + ' ordenes pendientes. Las ordenes de ABR-MAY se conservan intactas.');
+    alert('Periodo ' + nextN + ' ' + nextA + ' creado con ' + nuevas.length + ' ordenes pendientes.');
   }
 
   // ── GRÁFICA PASTEL ────────────────────────────────────────────
@@ -6100,14 +6132,11 @@
   setInterval(fetchTipoCambio, 60 * 60 * 1000);
 
   // ── VENTAS BIMESTRALES ANUALES ───────────────────────────────
-  const BIMESTRES_AÑO = [
-    { key: 'ABR-MAY', label: 'ABR\nMAY' },
-    { key: 'JUN-JUL', label: 'JUN\nJUL' },
-    { key: 'AGO-SEP', label: 'AGO\nSEP' },
-    { key: 'OCT-NOV', label: 'OCT\nNOV' },
-    { key: 'DIC-ENE', label: 'DIC\nENE' },
-    { key: 'FEB-MAR', label: 'FEB\nMAR' }
-  ];
+  // BIMESTRES_LABELS usa BIM_ORDEN que ya está definido arriba
+  const BIMESTRES_LABELS = {
+    'ABR-MAY': 'ABR\nMAY', 'JUN-JUL': 'JUN\nJUL', 'AGO-SEP': 'AGO\nSEP',
+    'OCT-NOV': 'OCT\nNOV', 'DIC-ENE': 'DIC\nENE', 'FEB-MAR': 'FEB\nMAR'
+  };
 
   async function openVentasAnuales() {
     document.getElementById('ventasAnualesModal').classList.add('open');
@@ -6119,32 +6148,26 @@
   });
 
   async function getAllBimestreOrders(bimKey) {
-    // Find Firestore collection key matching this bimestre
-    const allKeys = [];
-    // Check all known collections: orders (ABR-MAY_YYYY) and orders_XXX
-    try {
-      if (typeof db !== 'undefined' && db) {
-        // Try to get current year
-        const yr = new Date().getFullYear();
-        const candidates = [
-          bimKey + '_' + yr,
-          bimKey + '_' + (yr - 1),
-          bimKey + '_' + (yr + 1)
-        ];
-        let found = [];
-        for (const cand of candidates) {
-          const col = cand === 'ABR-MAY_' + yr ? 'orders' : 'orders_' + cand.replace(/[^a-zA-Z0-9]/g, '_');
-          try {
-            const snap = await db.collection(col).get();
-            if (!snap.empty) {
-              snap.forEach(doc => found.push(doc.data()));
-            }
-          } catch(e) {}
-        }
-        if (found.length) return found;
+    // Buscar en bimestres cargados que coincidan con esta clave
+    const matching = bimestres.filter(b => b.nombre === bimKey);
+    if (!matching.length) return [];
+    let found = [];
+    for (const bim of matching) {
+      // Si es el bimestre activo, usar orders en memoria
+      if (bim.id === bimestreActivo) {
+        found = found.concat(orders);
+        continue;
       }
-    } catch(e) {}
-    return [];
+      // Si no, buscar en Firestore
+      try {
+        if (typeof db !== 'undefined' && db) {
+          const col = bim.id === 'ABR-MAY_2026' ? 'orders' : 'orders_' + bim.id.replace(/[^a-zA-Z0-9]/g, '_');
+          const snap = await db.collection(col).get();
+          snap.forEach(doc => found.push(doc.data()));
+        }
+      } catch(e) {}
+    }
+    return found;
   }
 
   async function renderVentasAnuales() {
@@ -6158,7 +6181,9 @@
     let maxVal = 0;
     const TC = parseFloat(document.getElementById('tipoCambio')?.textContent?.replace('$','') || '17.5');
 
-    for (const bim of BIMESTRES_AÑO) {
+    // Construir lista de bimestres del año fiscal a mostrar
+    const bimAño = BIM_ORDEN.map(k => ({ key: k, label: BIMESTRES_LABELS[k] }));
+    for (const bim of bimAño) {
       // Try to get from Firestore
       const orders_bim = await getAllBimestreOrders(bim.key);
       
