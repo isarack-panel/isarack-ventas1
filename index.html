@@ -579,6 +579,25 @@
 
   /* ── GRAFICA PASTEL ─────────────────────────────────────────── */
   #chartModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:5000; align-items:center; justify-content:center; }
+  #ventasAnualesModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.8); z-index:5100; align-items:center; justify-content:center; }
+  #ventasAnualesModal.open { display:flex; }
+  #ventasAnualesBox { background:#1a1a2e; border-radius:12px; padding:28px 32px; width:min(90vw,780px); max-height:90vh; overflow-y:auto; }
+  #ventasAnualesBox h3 { font-family:'Barlow Condensed',sans-serif; font-size:20px; font-weight:700; color:#fff; letter-spacing:1px; margin-bottom:6px; text-align:center; }
+  #ventasAnualesBox .va-subtitle { font-family:'Barlow Condensed',sans-serif; font-size:12px; color:#888; text-align:center; margin-bottom:20px; }
+  .va-bars-wrap { display:flex; align-items:flex-end; gap:10px; height:220px; padding:0 8px; border-bottom:2px solid #333; border-left:2px solid #333; margin-bottom:8px; position:relative; }
+  .va-bar-group { display:flex; flex-direction:column; align-items:center; flex:1; gap:2px; height:100%; justify-content:flex-end; }
+  .va-bar { width:100%; border-radius:4px 4px 0 0; transition:height .4s ease; position:relative; min-height:2px; cursor:pointer; }
+  .va-bar:hover::after { content:attr(data-tip); position:absolute; bottom:105%; left:50%; transform:translateX(-50%); background:#333; color:#fff; font-size:10px; padding:3px 7px; border-radius:4px; white-space:nowrap; font-family:'Barlow Condensed',sans-serif; z-index:10; }
+  .va-bar-label { font-family:'Barlow Condensed',sans-serif; font-size:10px; color:#aaa; margin-top:6px; text-align:center; }
+  .va-bar-val { font-family:'Barlow Condensed',sans-serif; font-size:9px; color:#ccc; text-align:center; margin-bottom:2px; }
+  .va-legend { display:flex; gap:16px; justify-content:center; margin:10px 0 16px; flex-wrap:wrap; }
+  .va-legend span { font-family:'Barlow Condensed',sans-serif; font-size:12px; color:#ccc; display:flex; align-items:center; gap:5px; }
+  .va-legend-dot { width:10px; height:10px; border-radius:2px; display:inline-block; }
+  .va-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:8px; }
+  .va-card { background:#0f1923; border-radius:8px; padding:10px 14px; text-align:center; }
+  .va-card .va-card-label { font-family:'Barlow Condensed',sans-serif; font-size:10px; color:#888; letter-spacing:.5px; text-transform:uppercase; }
+  .va-card .va-card-val { font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:700; color:#4ade80; margin-top:2px; }
+  .va-card .va-card-sub { font-family:'Barlow Condensed',sans-serif; font-size:10px; color:#666; margin-top:1px; }
   #chartModal.open { display:flex; }
   #chartBox { background:#222; border-radius:10px; padding:28px 32px; min-width:340px; text-align:center; }
   #chartBox h3 { font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:700; color:#fff; letter-spacing:1px; margin-bottom:18px; }
@@ -648,6 +667,7 @@
     <button class="btn-bim" onclick="crearBimestre()">+ Nuevo período</button>
     <button class="btn-bim btn-bim-del" id="btnEliminarBim" onclick="eliminarBimestre()" style="display:none;">🗑 Eliminar</button>
     <button class="btn-bim" onclick="document.getElementById(&#39;chartModal&#39;).classList.add(&#39;open&#39;)">📊 Gráfica</button>
+    <button class="btn-bim" onclick="openVentasAnuales()" style="background:#1a3a5c;">📈 Ventas Bimestrales</button>
     <span id="bimestreBadge"></span>
   </div>
   <div class="stat-item" style="margin-left:0;">
@@ -4397,6 +4417,27 @@
   </div>
 </div>
 
+<!-- MODAL: VENTAS BIMESTRALES ANUAL -->
+<div id="ventasAnualesModal">
+  <div id="ventasAnualesBox">
+    <h3>📈 VENTAS BIMESTRALES</h3>
+    <p class="va-subtitle">Comportamiento anual · Año fiscal ABR–MAR</p>
+    <div class="va-legend">
+      <span><span class="va-legend-dot" style="background:#3b82f6;"></span>Ventas DLLS</span>
+      <span><span class="va-legend-dot" style="background:#f59e0b;"></span>Ventas MXN</span>
+      <span><span class="va-legend-dot" style="background:#4ade80;"></span>Comisiones</span>
+    </div>
+    <div class="va-bars-wrap" id="vaBarsWrap"></div>
+    <div style="display:flex;justify-content:space-between;padding:0 8px;">
+      <span id="vaBarLabels" style="display:flex;gap:10px;flex:1;"></span>
+    </div>
+    <div class="va-summary" id="vaSummary"></div>
+    <div style="text-align:center;margin-top:18px;">
+      <button class="btn-chart" onclick="document.getElementById('ventasAnualesModal').classList.remove('open')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: NUEVA ORDEN -->
 <div class="modal-overlay" id="newOrderModal">
   <div class="modal">
@@ -4903,30 +4944,28 @@
 
   function buildRow(o) {
     const tr = document.createElement('tr');
+    const anticipoPctVal = (o.anticipoPct !== undefined && o.anticipoPct !== null) ? Number(o.anticipoPct) : 100;
     const isComplete = !!(
-      o.files.cotizacion &&                                          // ODOO: PDF cargado
-      o.files.factura &&                                             // FACTURA: PDF cargado
-      // CLIENTE: PDF opcional, no bloquea
-      o.fechaPago && o.files.pago &&                                 // FECHA PAGO: fecha + archivo
-      o.files.hoja &&                                                // HOJA ENTREGA: PDF/foto
-      (o.status === 'En Proceso' || o.status === 'Instalado' || o.status === 'Entregado') && // STATUS: cualquiera
-      o.files.foto &&                                                // EVIDENCIA: imagen
-      o.pub === 'Publicado'                                          // PUB: publicado
+      o.files.cotizacion &&                                          // 1. ODOO: PDF cargado
+      o.files.factura &&                                             // 2. FACTURA: PDF cargado
+      o.files.cliente &&                                             // 3. CLIENTE (PO): PDF o imagen
+      anticipoPctVal >= 100 && o.fechaPago && o.files.pago &&        // 4. 100% pago + PDF + fecha
+      o.files.hoja &&                                                // 5. HOJA ENTREGA: PDF/foto
+      o.files.foto &&                                                // 6. EVIDENCIA: foto
+      o.pub === 'Publicado'                                          // 7. PUB: publicado
     );
-    const isPagadoRow = !!(o.fechaPago && o.files && o.files.pago);
-    tr.className = 'data-row' + ((isComplete || isPagadoRow) ? ' row-complete' : '');
+    tr.className = 'data-row' + (isComplete ? ' row-complete' : '');
     tr.dataset.id = o.id;
 
     // Progress: contar cuantas condiciones se cumplen (7 total)
-    // 6 condiciones obligatorias (cliente/PO es opcional)
     const checks = [
       !!o.files.cotizacion,                                          // 1. ODOO pdf
       !!o.files.factura,                                             // 2. FACTURA pdf
-      !!(o.fechaPago && o.files.pago),                               // 3. FECHA PAGO + archivo
-      !!o.files.hoja,                                                // 4. HOJA ENTREGA
-      !!(o.status === 'En Proceso' || o.status === 'Instalado' || o.status === 'Entregado'), // 5. STATUS
-      !!o.files.foto,                                                // 6. EVIDENCIA
-      o.pub === 'Publicado'                                          // 7. PUB
+      !!o.files.cliente,                                             // 3. CLIENTE (PO)
+      !!(anticipoPctVal >= 100 && o.fechaPago && o.files.pago),      // 4. 100% pago + PDF + fecha
+      !!o.files.hoja,                                                // 5. HOJA ENTREGA
+      !!o.files.foto,                                                // 6. EVIDENCIA foto
+      o.pub === 'Publicado'                                          // 7. PUB publicado
     ];
     const completedCount = checks.filter(Boolean).length;
     const progressPct = Math.round((completedCount / 7) * 100);
@@ -6059,6 +6098,172 @@
   chartObs.observe(document.getElementById('chartModal'), {attributes:true, attributeFilter:['class']});
   fetchTipoCambio();
   setInterval(fetchTipoCambio, 60 * 60 * 1000);
+
+  // ── VENTAS BIMESTRALES ANUALES ───────────────────────────────
+  const BIMESTRES_AÑO = [
+    { key: 'ABR-MAY', label: 'ABR\nMAY' },
+    { key: 'JUN-JUL', label: 'JUN\nJUL' },
+    { key: 'AGO-SEP', label: 'AGO\nSEP' },
+    { key: 'OCT-NOV', label: 'OCT\nNOV' },
+    { key: 'DIC-ENE', label: 'DIC\nENE' },
+    { key: 'FEB-MAR', label: 'FEB\nMAR' }
+  ];
+
+  async function openVentasAnuales() {
+    document.getElementById('ventasAnualesModal').classList.add('open');
+    await renderVentasAnuales();
+  }
+
+  document.getElementById('ventasAnualesModal').addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+
+  async function getAllBimestreOrders(bimKey) {
+    // Find Firestore collection key matching this bimestre
+    const allKeys = [];
+    // Check all known collections: orders (ABR-MAY_YYYY) and orders_XXX
+    try {
+      if (typeof db !== 'undefined' && db) {
+        // Try to get current year
+        const yr = new Date().getFullYear();
+        const candidates = [
+          bimKey + '_' + yr,
+          bimKey + '_' + (yr - 1),
+          bimKey + '_' + (yr + 1)
+        ];
+        let found = [];
+        for (const cand of candidates) {
+          const col = cand === 'ABR-MAY_' + yr ? 'orders' : 'orders_' + cand.replace(/[^a-zA-Z0-9]/g, '_');
+          try {
+            const snap = await db.collection(col).get();
+            if (!snap.empty) {
+              snap.forEach(doc => found.push(doc.data()));
+            }
+          } catch(e) {}
+        }
+        if (found.length) return found;
+      }
+    } catch(e) {}
+    return [];
+  }
+
+  async function renderVentasAnuales() {
+    const wrap = document.getElementById('vaBarsWrap');
+    const summary = document.getElementById('vaSummary');
+    wrap.innerHTML = '<div style="color:#888;font-family:'Barlow Condensed',sans-serif;font-size:13px;padding:20px;margin:auto;">Cargando datos...</div>';
+    summary.innerHTML = '';
+
+    // Collect data per bimestre
+    const data = [];
+    let maxVal = 0;
+    const TC = parseFloat(document.getElementById('tipoCambio')?.textContent?.replace('$','') || '17.5');
+
+    for (const bim of BIMESTRES_AÑO) {
+      // Try to get from Firestore
+      const orders_bim = await getAllBimestreOrders(bim.key);
+      
+      // Also check if current bimestre matches
+      let cur = [];
+      if (bimestreActivo && bimestreActivo.startsWith(bim.key)) {
+        cur = orders; // use loaded orders
+      }
+      const combined = orders_bim.length ? orders_bim : cur;
+
+      let totalDlls = 0, totalMxn = 0, totalComision = 0, numOrdenes = 0;
+      combined.forEach(o => {
+        if (!o) return;
+        numOrdenes++;
+        const pct = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : (o.pct || 2.2);
+        const anticipo = (o.anticipoPct !== undefined && o.anticipoPct !== null) ? Number(o.anticipoPct) : 100;
+        if (o.dlls) {
+          totalDlls += Number(o.dlls);
+          totalComision += Number(o.dlls) * (pct / 100) * (anticipo / 100);
+        } else if (o.pesos) {
+          totalMxn += Number(o.pesos);
+          totalComision += Number(o.pesos) * (pct / 100) * (anticipo / 100);
+        }
+      });
+
+      // Normalize to MXN equivalent for bar height comparison
+      const mxnEquiv = (totalDlls * TC) + totalMxn;
+      maxVal = Math.max(maxVal, mxnEquiv, totalComision * TC > 0 ? totalComision * TC : totalComision);
+
+      data.push({ 
+        label: bim.label, key: bim.key, 
+        dlls: totalDlls, mxn: totalMxn, 
+        comision: totalComision, mxnEquiv, 
+        numOrdenes,
+        isCurrent: !!(bimestreActivo && bimestreActivo.startsWith(bim.key))
+      });
+    }
+
+    if (maxVal === 0) maxVal = 1;
+
+    // Build bars
+    wrap.innerHTML = '';
+    data.forEach(d => {
+      const heightDlls = d.dlls > 0 ? Math.max(4, Math.round((d.dlls * TC / maxVal) * 200)) : 0;
+      const heightMxn = d.mxn > 0 ? Math.max(4, Math.round((d.mxn / maxVal) * 200)) : 0;
+      const heightCom = d.comision > 0 ? Math.max(4, Math.round((d.comision / maxVal) * 200)) : 0;
+
+      const fmtDlls = d.dlls > 0 ? '$' + d.dlls.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' USD' : '—';
+      const fmtMxn = d.mxn > 0 ? '$' + d.mxn.toLocaleString('es-MX', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' MXN' : '—';
+      const fmtCom = d.comision > 0 ? '$' + d.comision.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+
+      const hasData = d.dlls > 0 || d.mxn > 0;
+      const borderStyle = d.isCurrent ? 'outline:2px solid #facc15;border-radius:6px;' : '';
+
+      const group = document.createElement('div');
+      group.className = 'va-bar-group';
+      group.style = borderStyle + 'padding:0 2px;';
+      group.innerHTML = `
+        <div style="display:flex;gap:3px;align-items:flex-end;height:200px;">
+          ${d.dlls > 0 ? `<div class="va-bar" style="height:${heightDlls}px;background:#3b82f6;flex:1;" data-tip="DLLS: ${fmtDlls}"></div>` : '<div style="flex:1;"></div>'}
+          ${d.mxn > 0 ? `<div class="va-bar" style="height:${heightMxn}px;background:#f59e0b;flex:1;" data-tip="MXN: ${fmtMxn}"></div>` : '<div style="flex:1;"></div>'}
+          ${d.comision > 0 ? `<div class="va-bar" style="height:${heightCom}px;background:#4ade80;flex:1;" data-tip="Comisión: ${fmtCom}"></div>` : '<div style="flex:1;"></div>'}
+        </div>
+        <div class="va-bar-label" style="${d.isCurrent ? 'color:#facc15;font-weight:700;' : ''}">${d.label.replace('\n','<br>')}</div>
+        ${hasData ? `<div class="va-bar-val">${d.numOrdenes} órd.</div>` : '<div class="va-bar-val" style="color:#555;">Sin datos</div>'}
+      `;
+      wrap.appendChild(group);
+    });
+
+    // Summary cards
+    const totalOrd = data.reduce((a,d) => a + d.numOrdenes, 0);
+    const totalDllsAll = data.reduce((a,d) => a + d.dlls, 0);
+    const totalMxnAll = data.reduce((a,d) => a + d.mxn, 0);
+    const totalComAll = data.reduce((a,d) => a + d.comision, 0);
+    const bestBim = data.reduce((best, d) => d.mxnEquiv > best.mxnEquiv ? d : best, data[0]);
+
+    summary.innerHTML = `
+      <div class="va-card">
+        <div class="va-card-label">Total Órdenes Año</div>
+        <div class="va-card-val" style="color:#60a5fa;">${totalOrd}</div>
+        <div class="va-card-sub">en 6 bimestres</div>
+      </div>
+      <div class="va-card">
+        <div class="va-card-label">Ventas USD (Año)</div>
+        <div class="va-card-val" style="color:#3b82f6;">$${totalDllsAll.toLocaleString('en-US',{maximumFractionDigits:0})}</div>
+        <div class="va-card-sub">dólares acumulados</div>
+      </div>
+      <div class="va-card">
+        <div class="va-card-label">Ventas MXN (Año)</div>
+        <div class="va-card-val" style="color:#f59e0b;">$${totalMxnAll.toLocaleString('es-MX',{maximumFractionDigits:0})}</div>
+        <div class="va-card-sub">pesos acumulados</div>
+      </div>
+      <div class="va-card">
+        <div class="va-card-label">Comisiones (Año)</div>
+        <div class="va-card-val">$${totalComAll.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+        <div class="va-card-sub">total estimado</div>
+      </div>
+      <div class="va-card">
+        <div class="va-card-label">Mejor Bimestre</div>
+        <div class="va-card-val" style="color:#facc15;font-size:15px;">${bestBim.numOrdenes > 0 ? bestBim.key : '—'}</div>
+        <div class="va-card-sub">${bestBim.numOrdenes > 0 ? bestBim.numOrdenes + ' órdenes' : 'sin datos aún'}</div>
+      </div>
+    `;
+  }
+
 </script>
 </body>
 </html>
