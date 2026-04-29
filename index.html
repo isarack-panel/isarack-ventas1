@@ -4944,7 +4944,7 @@
     const isComplete = !!(
       o.files.cotizacion &&                                          // 1. ODOO: PDF cargado
       o.files.factura &&                                             // 2. FACTURA: PDF cargado
-      o.files.cliente &&                                             // 3. CLIENTE (PO): PDF o imagen
+      (o.files.cliente || o.files.po) &&                            // 3. CLIENTE (PO): PDF o imagen
       anticipoPctVal >= 100 && o.fechaPago && o.files.pago &&        // 4. 100% pago + PDF + fecha
       o.files.hoja &&                                                // 5. HOJA ENTREGA: PDF/foto
       o.files.foto &&                                                // 6. EVIDENCIA: foto
@@ -4957,7 +4957,7 @@
     const checks = [
       !!o.files.cotizacion,                                          // 1. ODOO pdf
       !!o.files.factura,                                             // 2. FACTURA pdf
-      !!o.files.cliente,                                             // 3. CLIENTE (PO)
+      !!(o.files.cliente || o.files.po),                            // 3. CLIENTE (PO)
       !!(anticipoPctVal >= 100 && o.fechaPago && o.files.pago),      // 4. 100% pago + PDF + fecha
       !!o.files.hoja,                                                // 5. HOJA ENTREGA
       !!o.files.foto,                                                // 6. EVIDENCIA foto
