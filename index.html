@@ -5475,21 +5475,20 @@
     const dd = String(today.getDate()).padStart(2,'0');
     const fechaHoy = yyyy + '-' + mm + '-' + dd;
 
-    // ── Fuente 1: Banxico API oficial via proxy — serie SF43718 FIX DOF ────
+    // ── Fuente 1: Banxico via allorigins proxy (pasa token en URL) ─
     try {
-      const banxicoUrl = 'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno';
-      const r1 = await fetch('https://corsproxy.io/?' + encodeURIComponent(banxicoUrl), {
-        headers: { 'Bmx-Token': '544cc7ee5728e46061f229e6a1551d5a0e2aeda388dcb5eda15c5ceacf2f6c9f', 'x-requested-with': 'XMLHttpRequest' }
-      });
+      const banxicoUrl = 'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno?token=544cc7ee5728e46061f229e6a1551d5a0e2aeda388dcb5eda15c5ceacf2f6c9f';
+      const r1 = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(banxicoUrl));
       if (r1.ok) {
-        const d1 = await r1.json();
+        const wrap = await r1.json();
+        const d1 = JSON.parse(wrap.contents);
         const datos = d1?.bmx?.series?.[0]?.datos;
         if (datos && datos.length > 0) {
           const valido = [...datos].reverse().find(d => d.dato !== 'N/E');
           if (valido && parseFloat(valido.dato) > 10) {
             tcDOF = parseFloat(valido.dato);
             tcFechaStr = valido.fecha;
-            if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico FIX oficial (DOF)'; }
+            if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico FIX DOF'; }
             if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
             updateStats();
             return;
