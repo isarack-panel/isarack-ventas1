@@ -2,7 +2,7 @@
 <html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ISARACK SA DE CV — Control de Ventas</title>
+<title>ISA RACK SA — Control de Ventas</title>
 <link href="./ISARACK SA DE CV — Control de Ventas_files/css2" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Firebase Compat SDK -->
@@ -4761,40 +4761,67 @@
       return parseFloat(s.replace(',', '.')) || 0;
     }
 
-    // Buscar todas las líneas con un descuento > 0
-    // Patrón: precio_unitario DESC% importe — buscar triplets numéricos seguidos de IVA
-    // Ejemplo: "36,00 0,00 IVA(8%) $ 864,00"
-    const linePattern = /([\d.,]+)\s+([\d.,]+)\s+IVA\(8%\)\s*\$\s*([\d.,]+)/g;
-    const lineMatches = [...flatText.matchAll(linePattern)];
-
+    // Buscar descuento en el PDF — formato ISARACK: precio DESC% importe (sin IVA)
+    // Ejemplo línea: "176,00 3,00 $ 1.024,32" o "42,00 3,00 $ 814,80"
     let totalSinDesc = 0;
     let totalConDesc = 0;
 
-    lineMatches.forEach(m => {
-      const precio = parseEuro(m[1]);
-      const desc   = parseEuro(m[2]);
-      const importe = parseEuro(m[3]);
-      if (precio > 0 && importe > 0) {
-        // importe = cantidad × precio × (1 - desc/100)
-        // cantidad = importe / (precio × (1 - desc/100))
-        const factor = desc > 0 ? (1 - desc/100) : 1;
-        const importeSinDesc = factor > 0 ? importe / factor : importe;
-        totalConDesc  += importe;
-        totalSinDesc  += importeSinDesc;
-      }
-    });
+    // Patrón 1: formato ISARACK sin IVA — precio desc% $ importe
+    const linePatternISARACK = /([\d.,]+)\s+([\d.,]+)\s+\$\s*([\d.,]+)/g;
+    const matchesISARACK = [...flatText.matchAll(linePatternISARACK)];
+    if (matchesISARACK.length > 0) {
+      matchesISARACK.forEach(m => {
+        const precio  = parseEuro(m[1]);
+        const desc    = parseEuro(m[2]);
+        const importe = parseEuro(m[3]);
+        if (precio > 0 && importe > 0 && desc >= 0 && desc <= 100) {
+          const factor = desc > 0 ? (1 - desc/100) : 1;
+          const importeSinDesc = factor > 0 ? importe / factor : importe;
+          totalConDesc += importe;
+          totalSinDesc += importeSinDesc;
+        }
+      });
+    }
 
-    // Descuento global = ahorro / total_sin_desc
+    // Patrón 2: formato con IVA — precio desc% IVA(8%) $ importe
+    if (totalSinDesc === 0) {
+      const linePatternIVA = /([\d.,]+)\s+([\d.,]+)\s+IVA\(8%\)\s*\$\s*([\d.,]+)/g;
+      const matchesIVA = [...flatText.matchAll(linePatternIVA)];
+      matchesIVA.forEach(m => {
+        const precio  = parseEuro(m[1]);
+        const desc    = parseEuro(m[2]);
+        const importe = parseEuro(m[3]);
+        if (precio > 0 && importe > 0) {
+          const factor = desc > 0 ? (1 - desc/100) : 1;
+          const importeSinDesc = factor > 0 ? importe / factor : importe;
+          totalConDesc += importe;
+          totalSinDesc += importeSinDesc;
+        }
+      });
+    }
+
+    // Calcular descuento global
     if (totalSinDesc > 0 && totalConDesc > 0) {
       const ahorro = totalSinDesc - totalConDesc;
       result.descuentoPct = Math.round((ahorro / totalSinDesc) * 100 * 10) / 10;
       if (result.descuentoPct < 0) result.descuentoPct = 0;
     }
 
-    // Fallback: si no encontró líneas, buscar descuento explícito en el texto
+    // Fallback: buscar descuento explícito en el texto (ej: "Descuento: 3%")
     if (result.descuentoPct === 0) {
       const descMatch = flatText.match(/descuento\s*[:\-]?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/i);
       if (descMatch) result.descuentoPct = parseFloat(descMatch[1].replace(',','.'));
+    }
+
+    // Fallback 2: si todas las líneas tienen el mismo DESC%, usar ese directamente
+    if (result.descuentoPct === 0) {
+      const descNums = [...flatText.matchAll(/\b(\d{1,2}),00\b/g)]
+        .map(m => parseFloat(m[1]))
+        .filter(d => d > 0 && d <= 10);
+      if (descNums.length > 0) {
+        const unicos = [...new Set(descNums)];
+        if (unicos.length === 1) result.descuentoPct = unicos[0]; // todos igual
+      }
     }
 
     // Mapear descuento → % comisión
