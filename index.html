@@ -5351,17 +5351,20 @@
   }
 
   function previewFile(id, key) {
-    const o = orders.find(x => x.id === id);
+    const o = orders.find(x => x.id === id || x.id === Number(id) || String(x.id) === String(id));
     if (!o || !o.files[key]) return;
     const f = o.files[key];
+    // Si tiene URL de Firebase Storage, abrir en nueva pestaña
     if (f.url) { window.open(f.url, '_blank'); return; }
+    // Si tiene data base64, mostrar en overlay
+    if (!f.data) return;
     const overlay = document.getElementById('previewOverlay');
     const content = document.getElementById('previewContent');
     overlay.classList.add('open');
     if (f.data.startsWith('data:image')) {
-      content.innerHTML = `<img src="${f.data}" alt="preview"/>`;
+      content.innerHTML = `<img src="${f.data}" alt="preview" style="max-width:100%;max-height:85vh;"/>`;
     } else {
-      content.innerHTML = `<iframe src="${f.data}"></iframe>`;
+      content.innerHTML = `<iframe src="${f.data}" style="width:100%;height:85vh;border:none;"></iframe>`;
     }
   }
 
@@ -5472,42 +5475,65 @@
     const dd = String(today.getDate()).padStart(2,'0');
     const fechaHoy = yyyy + '-' + mm + '-' + dd;
 
-    // ── Fuente 1: ExchangeRate-API (sin CORS, confiable) ────────
+    // ── Fuente 1: Banxico API oficial via proxy — serie SF43718 FIX DOF ────
     try {
-      const r1 = await fetch('https://open.er-api.com/v6/latest/USD');
+      const banxicoUrl = 'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno';
+      const r1 = await fetch('https://corsproxy.io/?' + encodeURIComponent(banxicoUrl), {
+        headers: { 'Bmx-Token': '544cc7ee5728e46061f229e6a1551d5a0e2aeda388dcb5eda15c5ceacf2f6c9f', 'x-requested-with': 'XMLHttpRequest' }
+      });
       if (r1.ok) {
         const d1 = await r1.json();
-        if (d1.rates && d1.rates.MXN) {
-          tcDOF = d1.rates.MXN;
-          tcFechaStr = fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API'; }
-          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-          updateStats();
-          return;
+        const datos = d1?.bmx?.series?.[0]?.datos;
+        if (datos && datos.length > 0) {
+          const valido = [...datos].reverse().find(d => d.dato !== 'N/E');
+          if (valido && parseFloat(valido.dato) > 10) {
+            tcDOF = parseFloat(valido.dato);
+            tcFechaStr = valido.fecha;
+            if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico FIX oficial (DOF)'; }
+            if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+            updateStats();
+            return;
+          }
         }
       }
-    } catch(e1) { console.warn('ER-API failed:', e1); }
+    } catch(e1) { console.warn('Banxico failed:', e1); }
 
-    // ── Fuente 2: cdnjs proxy for Frankfurter ────────────────────
+    // ── Fuente 2: Frankfurter (respaldo) ────────────────────────
     try {
-      const r2 = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
+      const r2 = await fetch('https://api.frankfurter.app/latest?from=USD&to=MXN');
       if (r2.ok) {
         const d2 = await r2.json();
-        if (d2.usd && d2.usd.mxn) {
-          tcDOF = d2.usd.mxn;
-          tcFechaStr = fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Currency-API'; }
+        if (d2.rates && d2.rates.MXN) {
+          tcDOF = d2.rates.MXN;
+          tcFechaStr = d2.date || fechaHoy;
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Frankfurter (respaldo)'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats();
           return;
         }
       }
-    } catch(e2) { console.warn('Currency-API failed:', e2); }
+    } catch(e2) { console.warn('Frankfurter failed:', e2); }
+
+    // ── Fuente 3: ExchangeRate-API (último respaldo) ─────────────
+    try {
+      const r3 = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (r3.ok) {
+        const d3 = await r3.json();
+        if (d3.rates && d3.rates.MXN) {
+          tcDOF = d3.rates.MXN;
+          tcFechaStr = fechaHoy;
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API (respaldo)'; }
+          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+          updateStats();
+          return;
+        }
+      }
+    } catch(e3) { console.warn('ER-API failed:', e3); }
 
     // ── Fallback offline ─────────────────────────────────────────
-    tcDOF = 17.3287;
+    tcDOF = 17.4948;
     tcFechaStr = fechaHoy + ' (offline)';
-    if (tcEl) { tcEl.textContent = '$17.3287'; tcEl.title = 'Sin conexión — valor de referencia'; }
+    if (tcEl) { tcEl.textContent = '$17.4948'; tcEl.title = 'Sin conexión — valor de referencia'; }
     if (tcFechaEl) tcFechaEl.textContent = '(offline)';
     updateStats();
   }
@@ -5673,6 +5699,17 @@
   }
 
   // ── SAVE/LOAD ────────────────────────────────────────────────
+  // Limpia undefined/funciones para Firestore
+  function cleanForFirestore(obj) {
+    if (obj === undefined || obj === null) return null;
+    if (typeof obj !== 'object') return obj;
+    const cleaned = {};
+    for (const [k, v] of Object.entries(obj)) {
+      cleaned[k] = (v === undefined) ? null : (typeof v === 'object' && v !== null ? cleanForFirestore(v) : v);
+    }
+    return cleaned;
+  }
+
   // ── SAVE TO FIRESTORE (fire-and-forget, never blocks UI) ────
   function saveOrders() {
     _saveOrdersAsync().catch(e => console.warn('saveOrders error:', e));
@@ -5722,17 +5759,6 @@
 
     // Try saving with full file data first
     try {
-      // Clean undefined values - Firestore rejects them
-      function cleanForFirestore(obj) {
-        if (obj === undefined) return null;
-        if (obj === null) return null;
-        if (typeof obj !== 'object') return obj;
-        const cleaned = {};
-        for (const [k, v] of Object.entries(obj)) {
-          cleaned[k] = v === undefined ? null : (typeof v === 'object' && v !== null ? cleanForFirestore(v) : v);
-        }
-        return cleaned;
-      }
       const toStore = cleanForFirestore({
         ...o,
         files: Object.fromEntries(
