@@ -5354,17 +5354,15 @@
     const o = orders.find(x => x.id === id || x.id === Number(id) || String(x.id) === String(id));
     if (!o || !o.files[key]) return;
     const f = o.files[key];
-    // Si tiene URL de Firebase Storage, abrir en nueva pestaña
-    if (f.url) { window.open(f.url, '_blank'); return; }
-    // Si tiene data base64, mostrar en overlay
-    if (!f.data) return;
     const overlay = document.getElementById('previewOverlay');
     const content = document.getElementById('previewContent');
+    const src = f.url || f.data;
+    if (!src) return;
     overlay.classList.add('open');
-    if (f.data.startsWith('data:image')) {
-      content.innerHTML = `<img src="${f.data}" alt="preview" style="max-width:100%;max-height:85vh;"/>`;
+    if (src.startsWith('data:image') || (f.name && /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name))) {
+      content.innerHTML = `<img src="${src}" alt="preview" style="max-width:90vw;max-height:80vh;border-radius:4px;"/>`;
     } else {
-      content.innerHTML = `<iframe src="${f.data}" style="width:100%;height:85vh;border:none;"></iframe>`;
+      content.innerHTML = `<iframe src="${src}" style="width:85vw;height:80vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
     }
   }
 
@@ -5468,58 +5466,32 @@
     const tcEl = document.getElementById('tipoCambio');
     const tcFechaEl = document.getElementById('tcFecha');
     if (tcEl) tcEl.textContent = 'cargando...';
-
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth()+1).padStart(2,'0');
-    const dd = String(today.getDate()).padStart(2,'0');
-    const fechaHoy = yyyy + '-' + mm + '-' + dd;
+    const fechaHoy = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
 
-    // ── Fuente 1: Banxico via allorigins proxy (pasa token en URL) ─
+    // ── Fuente 1: Vercel serverless proxy → Banxico FIX DOF exacto ──
     try {
-      const banxicoUrl = 'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno?token=544cc7ee5728e46061f229e6a1551d5a0e2aeda388dcb5eda15c5ceacf2f6c9f';
-      const r1 = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(banxicoUrl));
+      const r1 = await fetch('/api/tc');
       if (r1.ok) {
-        const wrap = await r1.json();
-        const d1 = JSON.parse(wrap.contents);
-        const datos = d1?.bmx?.series?.[0]?.datos;
-        if (datos && datos.length > 0) {
-          const valido = [...datos].reverse().find(d => d.dato !== 'N/E');
-          if (valido && parseFloat(valido.dato) > 10) {
-            tcDOF = parseFloat(valido.dato);
-            tcFechaStr = valido.fecha;
-            if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico FIX DOF'; }
-            if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-            updateStats();
-            return;
-          }
-        }
-      }
-    } catch(e1) { console.warn('Banxico failed:', e1); }
-
-    // ── Fuente 2: Frankfurter (respaldo) ────────────────────────
-    try {
-      const r2 = await fetch('https://api.frankfurter.app/latest?from=USD&to=MXN');
-      if (r2.ok) {
-        const d2 = await r2.json();
-        if (d2.rates && d2.rates.MXN) {
-          tcDOF = d2.rates.MXN;
-          tcFechaStr = d2.date || fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Frankfurter (respaldo)'; }
+        const d1 = await r1.json();
+        if (d1.rate && d1.rate > 10) {
+          tcDOF = d1.rate;
+          tcFechaStr = d1.date || fechaHoy;
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico FIX DOF (oficial)'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats();
           return;
         }
       }
-    } catch(e2) { console.warn('Frankfurter failed:', e2); }
+    } catch(e1) { console.warn('Proxy TC failed:', e1); }
 
-    // ── Fuente 3: ExchangeRate-API (último respaldo) ─────────────
+    // ── Fuente 2: ExchangeRate-API (respaldo, tiene CORS) ──────
     try {
-      const r3 = await fetch('https://open.er-api.com/v6/latest/USD');
-      if (r3.ok) {
-        const d3 = await r3.json();
-        if (d3.rates && d3.rates.MXN) {
-          tcDOF = d3.rates.MXN;
+      const r2 = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (r2.ok) {
+        const d2 = await r2.json();
+        if (d2.rates && d2.rates.MXN) {
+          tcDOF = d2.rates.MXN;
           tcFechaStr = fechaHoy;
           if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API (respaldo)'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
@@ -5527,13 +5499,12 @@
           return;
         }
       }
-    } catch(e3) { console.warn('ER-API failed:', e3); }
+    } catch(e2) { console.warn('ER-API failed:', e2); }
 
     // ── Fallback offline ─────────────────────────────────────────
     tcDOF = 17.4948;
     tcFechaStr = fechaHoy + ' (offline)';
-    if (tcEl) { tcEl.textContent = '$17.4948'; tcEl.title = 'Sin conexión — valor de referencia'; }
-    if (tcFechaEl) tcFechaEl.textContent = '(offline)';
+    if (tcEl) { tcEl.textContent = '$17.4948'; tcEl.title = 'Sin conexión'; }
     updateStats();
   }
 
