@@ -3,7 +3,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ISA RACK SA — Control de Ventas</title>
-<link href="./ISARACK SA DE CV — Control de Ventas_files/css2" rel="stylesheet">
+<!-- Google Fonts removido -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Firebase Compat SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -364,11 +364,10 @@
   .preview-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,.9);
     display: none; align-items: center; justify-content: center; z-index: 2000;
-    flex-direction: column; gap: 12px;
   }
   .preview-overlay.open { display: flex; }
-  .preview-overlay img { max-width: 90vw; max-height: 80vh; border-radius: 4px; }
-  .preview-overlay iframe { width: 85vw; height: 80vh; border: none; border-radius: 4px; }
+  .preview-overlay img { max-width: 92vw; max-height: 90vh; border-radius: 4px; }
+  .preview-overlay iframe { width: 92vw; height: 90vh; border: none; border-radius: 4px; background:#fff; }
   .preview-close {
     position: absolute; top: 16px; right: 24px; font-size: 28px; color: #fff;
     cursor: pointer; background: none; border: none; line-height: 1;
@@ -606,9 +605,109 @@
   #chartLegend span { display:inline-block; width:12px; height:12px; border-radius:2px; margin-right:6px; vertical-align:middle; }
   .btn-chart { padding:4px 14px; border-radius:4px; border:1px solid #555; background:transparent; color:#aaa; font-family:'Barlow Condensed',sans-serif; font-size:11px; cursor:pointer; margin-top:14px; }
   .btn-chart:hover { border-color:#fff; color:#fff; }
+
+  /* ═══════════════ LOGIN SCREEN ═══════════════ */
+  #loginScreen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #loginScreen.hidden { display: none; }
+  .login-box {
+    background: #222; border: 1px solid #333; border-radius: 12px;
+    padding: 40px 44px; width: 360px; max-width: 94vw;
+    box-shadow: 0 24px 60px rgba(0,0,0,.6);
+  }
+  .login-logo { text-align: center; margin-bottom: 28px; }
+  .login-logo .name { font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+  .login-logo .sub  { font-size: 11px; color: #777; margin-top: 2px; }
+  .login-field { margin-bottom: 16px; }
+  .login-field label { display: block; font-size: 11px; color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .5px; }
+  .login-field input {
+    width: 100%; box-sizing: border-box;
+    background: #2e2e2e; border: 1px solid #444; border-radius: 6px;
+    color: #eee; font-size: 14px; padding: 10px 13px; outline: none;
+    transition: border .2s;
+  }
+  .login-field input:focus { border-color: #e07b27; }
+  .login-btn {
+    width: 100%; margin-top: 8px; padding: 12px;
+    background: #e07b27; border: none; border-radius: 7px;
+    color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
+    letter-spacing: .5px; transition: background .2s;
+  }
+  .login-btn:hover { background: #c96a18; }
+  .login-err { color: #e55; font-size: 12px; text-align: center; margin-top: 10px; min-height: 18px; }
+  /* User chip in header */
+  .user-chip {
+    display: flex; align-items: center; gap: 6px;
+    background: #2a2a2a; border: 1px solid #333; border-radius: 20px;
+    padding: 4px 12px 4px 8px; font-size: 12px; color: #ccc; cursor: default;
+  }
+  .user-chip-avatar {
+    width: 24px; height: 24px; border-radius: 50%; background: #e07b27;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+  }
+  .logout-btn {
+    background: none; border: 1px solid #444; border-radius: 6px;
+    color: #888; font-size: 11px; padding: 4px 10px; cursor: pointer;
+    transition: all .2s;
+  }
+  .logout-btn:hover { border-color: #e07b27; color: #e07b27; }
+  /* ═══════════════ USER MANAGER (admin) ═══════════════ */
+  .users-panel {
+    background: #222; border: 1px solid #333; border-radius: 10px;
+    padding: 20px; margin: 12px 0;
+  }
+  .user-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid #2e2e2e;
+  }
+  .user-row:last-child { border-bottom: none; }
+  .user-row-info { flex: 1; font-size: 12px; }
+  .user-row-info .ur-id  { color: #ddd; font-weight: 600; }
+  .user-row-info .ur-role { color: #e07b27; font-size: 10px; }
+  .user-del-btn {
+    background: #3a1515; border: 1px solid #5a2020; border-radius: 5px;
+    color: #e55; font-size: 11px; padding: 3px 9px; cursor: pointer;
+  }
+  .user-add-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .user-add-form input {
+    flex: 1; min-width: 120px; background: #2e2e2e; border: 1px solid #444;
+    border-radius: 6px; color: #eee; font-size: 13px; padding: 7px 10px; outline: none;
+  }
+  .user-add-form input:focus { border-color: #e07b27; }
+  .user-add-btn {
+    background: #e07b27; border: none; border-radius: 6px;
+    color: #fff; font-size: 12px; font-weight: 700; padding: 7px 16px; cursor: pointer;
+  }
+  .user-add-btn:hover { background: #c96a18; }
+
 </style>
 </head>
 <body>
+
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="name"><span style="color:#e07b27">ISA</span><span style="color:#888"> RACK SA</span></div>
+      <div class="sub">Control de Ventas — Acceso</div>
+    </div>
+    <div class="login-field">
+      <label>Usuario (número o correo)</label>
+      <input type="text" id="loginId" placeholder="Ej: 664 270 85 23" autocomplete="username" onkeydown="loginKeyHandler(event)">
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="loginPwd" placeholder="••••••••" autocomplete="current-password" onkeydown="loginKeyHandler(event)">
+    </div>
+    <button class="login-btn" onclick="doLogin()">ENTRAR</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
 
 <!-- TOP HEADER -->
 <div id="loadingOverlay" style="display: none;">
@@ -624,6 +723,11 @@
     </div>
   </div>
   <div class="header-right">
+    <div id="userChip" class="user-chip" style="display:none;">
+      <div class="user-chip-avatar" id="userAvatar">?</div>
+      <span id="userLabel">-</span>
+    </div>
+    <button class="logout-btn" id="logoutBtn" style="display:none;" onclick="doLogout()">Salir</button>
     <span class="date-label" id="headerDate">24 ABR 2026</span>
   </div>
 </header>
@@ -5356,18 +5460,35 @@
     const f = o.files[key];
     const overlay = document.getElementById('previewOverlay');
     const content = document.getElementById('previewContent');
-    const src = f.url || f.data;
-    if (!src) return;
+    // Si tiene URL de Firebase, abrir en nueva pestaña
+    if (f.url) { window.open(f.url, '_blank'); return; }
+    if (!f.data) return;
     overlay.classList.add('open');
-    if (src.startsWith('data:image') || (f.name && /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name))) {
-      content.innerHTML = `<img src="${src}" alt="preview" style="max-width:90vw;max-height:80vh;border-radius:4px;"/>`;
+    if (f.data.startsWith('data:image') || (f.name && /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name))) {
+      content.innerHTML = `<img src="${f.data}" alt="preview" style="max-width:92vw;max-height:90vh;border-radius:4px;"/>`;
     } else {
-      content.innerHTML = `<iframe src="${src}" style="width:85vw;height:80vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
+      // PDF: convertir base64 a Blob para evitar bloqueos del navegador
+      try {
+        const base64 = f.data.split(',')[1];
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        content.innerHTML = `<iframe src="${blobUrl}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
+        // Limpiar blob URL cuando se cierre
+        overlay._blobUrl = blobUrl;
+      } catch(e) {
+        // Fallback directo
+        content.innerHTML = `<iframe src="${f.data}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
+      }
     }
   }
 
   function closePreview() {
-    document.getElementById('previewOverlay').classList.remove('open');
+    const overlay = document.getElementById('previewOverlay');
+    if (overlay._blobUrl) { URL.revokeObjectURL(overlay._blobUrl); overlay._blobUrl = null; }
+    overlay.classList.remove('open');
     document.getElementById('previewContent').innerHTML = '';
   }
 
@@ -5462,6 +5583,198 @@
   let tcDOF = null;      // valor actual del TC
   let tcFechaStr = '';   // fecha del TC
 
+
+  // ═══════════════════════════════════════════
+  //  SISTEMA DE USUARIOS Y LOGIN
+  // ═══════════════════════════════════════════
+  const USERS_KEY = 'isarack_users';
+  const SESSION_KEY = 'isarack_session';
+
+  // Usuario administrador por defecto (siempre existe)
+  const DEFAULT_ADMIN = {
+    id: '6642708523',
+    pwd: 'dadimati 88',
+    name: 'Admin',
+    role: 'admin'
+  };
+
+  function getUsers() {
+    try {
+      const raw = localStorage.getItem(USERS_KEY);
+      const users = raw ? JSON.parse(raw) : [];
+      // El admin siempre está (aunque no esté guardado)
+      const hasAdmin = users.some(u => u.id === DEFAULT_ADMIN.id);
+      if (!hasAdmin) users.unshift({ ...DEFAULT_ADMIN });
+      return users;
+    } catch(e) { return [{ ...DEFAULT_ADMIN }]; }
+  }
+
+  function saveUsers(users) {
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  }
+
+  function normalizeId(raw) {
+    // Quitar espacios, guiones y puntos para comparar
+    return (raw || '').toString().replace(/[\s\-\.]/g, '').toLowerCase();
+  }
+
+  function getSession() {
+    try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)); } catch(e) { return null; }
+  }
+
+  function setSession(user) {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+  }
+
+  function clearSession() {
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+
+  let currentUser = null;
+
+  function doLogin() {
+    const rawId  = (document.getElementById('loginId').value || '').trim();
+    const rawPwd = (document.getElementById('loginPwd').value || '').trim();
+    const errEl  = document.getElementById('loginErr');
+    errEl.textContent = '';
+
+    if (!rawId || !rawPwd) {
+      errEl.textContent = 'Ingresa usuario y contraseña.';
+      return;
+    }
+
+    const normId  = normalizeId(rawId);
+    const normPwd = rawPwd; // contraseña exacta (case-sensitive)
+
+    const users = getUsers();
+    const user  = users.find(u => normalizeId(u.id) === normId && u.pwd === normPwd);
+
+    if (!user) {
+      errEl.textContent = '❌ Usuario o contraseña incorrectos.';
+      document.getElementById('loginPwd').value = '';
+      return;
+    }
+
+    currentUser = user;
+    setSession(user);
+    showApp();
+  }
+
+  function doLogout() {
+    clearSession();
+    currentUser = null;
+    hideApp();
+  }
+
+  function showApp() {
+    document.getElementById('loginScreen').classList.add('hidden');
+    const chip   = document.getElementById('userChip');
+    const avatar = document.getElementById('userAvatar');
+    const label  = document.getElementById('userLabel');
+    const btn    = document.getElementById('logoutBtn');
+    if (chip && currentUser) {
+      avatar.textContent = (currentUser.name || currentUser.id)[0].toUpperCase();
+      label.textContent  = currentUser.name || currentUser.id;
+      chip.style.display = 'flex';
+      btn.style.display  = 'block';
+    }
+  }
+
+  function hideApp() {
+    document.getElementById('loginScreen').classList.remove('hidden');
+    const chip = document.getElementById('userChip');
+    const btn  = document.getElementById('logoutBtn');
+    if (chip) chip.style.display = 'none';
+    if (btn)  btn.style.display  = 'none';
+    document.getElementById('loginId').value  = '';
+    document.getElementById('loginPwd').value = '';
+    document.getElementById('loginErr').textContent = '';
+  }
+
+  // Detectar Enter en los campos de login
+  function loginKeyHandler(e) {
+    if (e.key === 'Enter') doLogin();
+  }
+
+  // ─── Gestión de usuarios (solo admin) ────────────────────────
+  function renderUserManager(containerId) {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const cont = document.getElementById(containerId);
+    if (!cont) return;
+    const users = getUsers();
+    let html = '<div class="users-panel">';
+    html += '<div style="font-size:12px;color:#aaa;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">Usuarios registrados</div>';
+    users.forEach((u, i) => {
+      const isMe = normalizeId(u.id) === normalizeId(currentUser.id);
+      html += `<div class="user-row">
+        <div class="user-row-info">
+          <div class="ur-id">${u.id}</div>
+          <div class="ur-role">${u.role === 'admin' ? '👑 Administrador' : '👤 Usuario'} · ${u.name}</div>
+        </div>
+        ${!isMe ? `<button class="user-del-btn" onclick="deleteUser(${i})">Eliminar</button>` : '<span style="font-size:10px;color:#555">(tú)</span>'}
+      </div>`;
+    });
+    const slots = 7 - users.length;
+    html += `<div style="font-size:11px;color:#666;margin:10px 0 6px">${slots > 0 ? `Puedes agregar ${slots} usuario(s) más.` : 'Límite de 7 usuarios alcanzado.'}</div>`;
+    if (slots > 0) {
+      html += `<div class="user-add-form">
+        <input type="text" id="nuId"   placeholder="Número o correo">
+        <input type="text" id="nuName" placeholder="Nombre">
+        <input type="password" id="nuPwd" placeholder="Contraseña">
+        <button class="user-add-btn" onclick="addUser()">+ Agregar</button>
+      </div>
+      <div id="userMgrErr" style="color:#e55;font-size:11px;margin-top:6px;"></div>`;
+    }
+    html += '</div>';
+    cont.innerHTML = html;
+  }
+
+  function addUser() {
+    const id   = (document.getElementById('nuId').value   || '').trim();
+    const name = (document.getElementById('nuName').value || '').trim();
+    const pwd  = (document.getElementById('nuPwd').value  || '').trim();
+    const errEl = document.getElementById('userMgrErr');
+    if (!id || !name || !pwd) { errEl.textContent = 'Completa todos los campos.'; return; }
+    const users = getUsers();
+    if (users.length >= 7) { errEl.textContent = 'Límite de 7 usuarios.'; return; }
+    if (users.some(u => normalizeId(u.id) === normalizeId(id))) {
+      errEl.textContent = 'Ese usuario ya existe.'; return;
+    }
+    users.push({ id, name, pwd, role: 'user' });
+    saveUsers(users);
+    errEl.textContent = '';
+    // Re-render (caller should call renderUserManager again)
+    renderUserManager('userManagerContainer');
+  }
+
+  function deleteUser(idx) {
+    const users = getUsers();
+    if (idx < 0 || idx >= users.length) return;
+    if (normalizeId(users[idx].id) === normalizeId(currentUser.id)) return; // no autoeliminar
+    if (!confirm('¿Eliminar usuario "' + users[idx].id + '"?')) return;
+    users.splice(idx, 1);
+    saveUsers(users);
+    renderUserManager('userManagerContainer');
+  }
+
+  // ─── Arranque con sesión guardada ────────────────────────────
+  (function initAuth() {
+    const saved = getSession();
+    if (saved) {
+      // Verificar que el usuario aún existe
+      const users = getUsers();
+      const still = users.find(u => normalizeId(u.id) === normalizeId(saved.id) && u.pwd === saved.pwd);
+      if (still) {
+        currentUser = still;
+        // Mostrar app sin recargar (se llama tras DOMContentLoaded)
+        document.addEventListener('DOMContentLoaded', showApp);
+        return;
+      }
+    }
+    // Sin sesión válida — login screen ya visible
+  })();
+
+
   async function fetchTipoCambio() {
     const tcEl = document.getElementById('tipoCambio');
     const tcFechaEl = document.getElementById('tcFecha');
@@ -5469,42 +5782,43 @@
     const today = new Date();
     const fechaHoy = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
 
-    // ── Fuente 1: Vercel serverless proxy → Banxico FIX DOF exacto ──
+    // ── Fuente 1: ExchangeRate-API (gratuita, sin CORS) ────────
     try {
-      const r1 = await fetch('/api/tc');
+      const r1 = await fetch('https://open.er-api.com/v6/latest/USD');
       if (r1.ok) {
         const d1 = await r1.json();
-        if (d1.rate && d1.rate > 10) {
-          tcDOF = d1.rate;
-          tcFechaStr = d1.date || fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico FIX DOF (oficial)'; }
+        if (d1.rates && d1.rates.MXN) {
+          tcDOF = d1.rates.MXN;
+          tcFechaStr = fechaHoy;
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats();
           return;
         }
       }
-    } catch(e1) { console.warn('Proxy TC failed:', e1); }
+    } catch(e1) { /* sin internet, usar fallback */ }
 
-    // ── Fuente 2: ExchangeRate-API (respaldo, tiene CORS) ──────
+    // ── Fuente 2: Fixer.io alternativa ─────────────────────────
     try {
-      const r2 = await fetch('https://open.er-api.com/v6/latest/USD');
+      const r2 = await fetch('https://api.fxratesapi.com/latest?currencies=MXN&base=USD');
       if (r2.ok) {
         const d2 = await r2.json();
         if (d2.rates && d2.rates.MXN) {
           tcDOF = d2.rates.MXN;
           tcFechaStr = fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API (respaldo)'; }
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: FXRates'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats();
           return;
         }
       }
-    } catch(e2) { console.warn('ER-API failed:', e2); }
+    } catch(e2) { /* continuar a fallback */ }
 
     // ── Fallback offline ─────────────────────────────────────────
     tcDOF = 17.4948;
     tcFechaStr = fechaHoy + ' (offline)';
-    if (tcEl) { tcEl.textContent = '$17.4948'; tcEl.title = 'Sin conexión'; }
+    if (tcEl) { tcEl.textContent = '$17.4948'; tcEl.title = 'Sin conexión — valor aproximado'; }
+    if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
     updateStats();
   }
 
