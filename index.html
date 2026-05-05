@@ -4917,10 +4917,11 @@
     // 4%-6%     → 1.60%
     // 7%-10%    → 1.30%
     function descuentoToPct(desc) {
-      if (desc < 0.1)  return 2.20;  // sin descuento
-      if (desc < 3)    return 1.90;  // 0.1% a 2.9%
-      if (desc < 6)    return 1.60;  // 3% a 5.9%
-      if (desc <= 10)  return 1.30;  // 6% a 10%
+      const d = parseFloat(desc) || 0;  // null/undefined/NaN → 0
+      if (d < 0.1)  return 2.20;  // sin descuento
+      if (d < 3)    return 1.90;  // 0.1% a 2.9%
+      if (d < 6)    return 1.60;  // 3% a 5.9%
+      if (d <= 10)  return 1.30;  // 6% a 10%
       return 1.30;
     }
     result.pctSugerido = descuentoToPct(result.descuentoPct);
@@ -4977,7 +4978,7 @@
         </div>
       `;
       // Guardar pct sugerido por descuento detectado
-      window._pendingPctSugerido = data.pctSugerido || 2.20;
+      window._pendingPctSugerido = (data.pctSugerido != null) ? data.pctSugerido : 2.20;
       // Update visual indicator
       const pctInd = document.getElementById('pctIndicatorVal');
       const pctNote = document.getElementById('pctIndicatorNote');
@@ -5024,7 +5025,7 @@
     const order = {
       id, odoo, facturaNum, cliente, dlls, pesos,
       ing: todayISO(),
-      pct: window._pendingPctSugerido || 2.20, pctCustom: null,
+      pct: window._pendingPctSugerido != null ? window._pendingPctSugerido : 2.20, pctCustom: null,
       fechaPago: '', status: 'En Proceso', pub: 'No Publicado', observaciones: '', facturaSolicitada: false, anticipoPct: 100,
       files: { cotizacion: window._pendingCotPdf || null, factura: null, po: null, pago: null, hoja: null, foto: null }
     };
