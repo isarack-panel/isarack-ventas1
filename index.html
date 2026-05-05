@@ -787,9 +787,9 @@
   <thead>
     <tr>
       <th class="th-sort" onclick="sortBy(&#39;odoo&#39;)" title="Ordenar ascendente">ODOO <span class="sort-icon" id="si-odoo">⇅</span></th>
-      <th class="th-sort" onclick="sortBy(&#39;factura&#39;)" title="Con/sin factura">FACTURA <span class="sort-icon" id="si-factura">⇅</span></th>
+      <th class="th-sort" onclick="sortBy(&#39;factura&#39;)" title="Ordenar por número de factura">FACTURA <span class="sort-icon" id="si-factura">⇅</span></th>
       <th class="th-sort" onclick="sortBy(&#39;cliente&#39;)" title="Orden alfabetico">CLIENTE <span class="sort-icon" id="si-cliente">⇅</span></th>
-      <th>ING.</th>
+      <th class="th-sort" onclick="sortBy('ing')" title="Ordenar por fecha de ingreso">ING. <span class="sort-icon" id="si-ing">⇅</span></th>
       <th>DLLS</th>
       <th>PESOS</th>
       <th>%</th>
@@ -4917,11 +4917,10 @@
     // 4%-6%     → 1.60%
     // 7%-10%    → 1.30%
     function descuentoToPct(desc) {
-      const d = parseFloat(desc) || 0;  // null/undefined/NaN → 0
-      if (d < 0.1)  return 2.20;  // sin descuento
-      if (d < 3)    return 1.90;  // 0.1% a 2.9%
-      if (d < 6)    return 1.60;  // 3% a 5.9%
-      if (d <= 10)  return 1.30;  // 6% a 10%
+      if (desc < 0.1)  return 2.20;  // sin descuento
+      if (desc < 3)    return 1.90;  // 0.1% a 2.9%
+      if (desc < 6)    return 1.60;  // 3% a 5.9%
+      if (desc <= 10)  return 1.30;  // 6% a 10%
       return 1.30;
     }
     result.pctSugerido = descuentoToPct(result.descuentoPct);
@@ -4978,7 +4977,7 @@
         </div>
       `;
       // Guardar pct sugerido por descuento detectado
-      window._pendingPctSugerido = (data.pctSugerido != null) ? data.pctSugerido : 2.20;
+      window._pendingPctSugerido = data.pctSugerido || 2.20;
       // Update visual indicator
       const pctInd = document.getElementById('pctIndicatorVal');
       const pctNote = document.getElementById('pctIndicatorNote');
@@ -5025,7 +5024,7 @@
     const order = {
       id, odoo, facturaNum, cliente, dlls, pesos,
       ing: todayISO(),
-      pct: window._pendingPctSugerido != null ? window._pendingPctSugerido : 2.20, pctCustom: null,
+      pct: window._pendingPctSugerido || 2.20, pctCustom: null,
       fechaPago: '', status: 'En Proceso', pub: 'No Publicado', observaciones: '', facturaSolicitada: false, anticipoPct: 100,
       files: { cotizacion: window._pendingCotPdf || null, factura: null, po: null, pago: null, hoja: null, foto: null }
     };
@@ -5939,12 +5938,17 @@
             vb = (b.cliente || '').toLowerCase();
             return va < vb ? -sortDir : va > vb ? sortDir : 0;
           case 'factura':
-            // Con factura primero (asc) = 1, sin = 0
-            va = a.files.factura ? 1 : 0;
-            vb = b.files.factura ? 1 : 0;
-            if (va !== vb) return (vb - va) * sortDir;
-            // Secundario: orden alfab de odoo
-            return ((a.odoo||'') < (b.odoo||'') ? -1 : 1) * sortDir;
+            // Ordenar por número de factura; sin factura al final
+            va = (a.facturaNum || '').toLowerCase();
+            vb = (b.facturaNum || '').toLowerCase();
+            if (!va && !vb) return 0;
+            if (!va) return sortDir;
+            if (!vb) return -sortDir;
+            return va < vb ? -sortDir : va > vb ? sortDir : 0;
+          case 'ing':
+            va = a.ing || '0000-00-00';
+            vb = b.ing || '0000-00-00';
+            return va < vb ? -sortDir : va > vb ? sortDir : 0;
           case 'fechaPago':
             va = a.fechaPago || '0000-00-00';
             vb = b.fechaPago || '0000-00-00';
