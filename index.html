@@ -5189,11 +5189,21 @@
       <!-- EVIDENCIA -->
       <td>
         ${buildFileBtn('foto', o, 'btn-foto', '📷 FOTO')}
-        ${o.files.foto ? (
-          o.files.foto.data && o.files.foto.data.startsWith('data:image')
-            ? `<br/><img class="thumb-preview" src="${o.files.foto.data}" onclick="previewFile(${o.id},'foto')" title="Ver foto"/>`
-            : `<br/><span class="pdf-thumb" onclick="previewFile(${o.id},'foto')" title="${o.files.foto.name}">📄</span>`
-        ) : ''}
+        ${o.files.foto ? (() => {
+          const f = o.files.foto;
+          const isImg = (f.data && f.data.startsWith('data:image')) ||
+                        (f.url && /\.(png|jpe?g|gif|webp)/i.test(f.name || ''));
+          const src = f.data && f.data.startsWith('data:image') ? f.data : (f.url || null);
+          if (src && isImg) {
+            return `<br/><img class="thumb-preview" src="${src}" onclick="previewFile(${o.id},'foto')" title="Ver foto"/>`;
+          } else if (f.url && !isImg) {
+            // Firebase URL pero no imagen (PDF) — mostrar ícono clickeable
+            return `<br/><span class="pdf-thumb" onclick="previewFile(${o.id},'foto')" title="${f.name||'Ver archivo'}" style="cursor:pointer;font-size:18px;">📄</span>`;
+          } else if (f.data) {
+            return `<br/><span class="pdf-thumb" onclick="previewFile(${o.id},'foto')" title="${f.name||'Ver archivo'}" style="cursor:pointer;font-size:18px;">📄</span>`;
+          }
+          return '';
+        })() : ''}
       </td>
       <!-- PUB -->
       <td>
@@ -5938,13 +5948,20 @@
             vb = (b.cliente || '').toLowerCase();
             return va < vb ? -sortDir : va > vb ? sortDir : 0;
           case 'factura':
-            // Ordenar por número de factura; sin factura al final
-            va = (a.facturaNum || '').toLowerCase();
-            vb = (b.facturaNum || '').toLowerCase();
+            // Ordenar por factura: primero por letra, luego numéricamente por el número
+            va = (a.facturaNum || '');
+            vb = (b.facturaNum || '');
             if (!va && !vb) return 0;
             if (!va) return sortDir;
             if (!vb) return -sortDir;
-            return va < vb ? -sortDir : va > vb ? sortDir : 0;
+            {
+              const letA = va.match(/^[A-Za-z]+/)?.[0]?.toUpperCase() || '';
+              const letB = vb.match(/^[A-Za-z]+/)?.[0]?.toUpperCase() || '';
+              const numA = parseInt(va.replace(/^[A-Za-z]+/, ''), 10) || 0;
+              const numB = parseInt(vb.replace(/^[A-Za-z]+/, ''), 10) || 0;
+              if (letA !== letB) return letA < letB ? -sortDir : sortDir;
+              return (numA - numB) * sortDir;
+            }
           case 'ing':
             va = a.ing || '0000-00-00';
             vb = b.ing || '0000-00-00';
