@@ -4870,57 +4870,50 @@
       return parseFloat(s.replace(',', '.')) || 0;
     }
 
-    // Detectar descuento SOLO si aparece explícitamente en el PDF
-    // Nunca inferirlo de columnas de precio/cantidad — demasiados falsos positivos
+    // ── DETECTAR DESCUENTO GLOBAL ─────────────────────────────────
+    // SIEMPRE inicializar en 0
+    result.descuentoPct = 0;
 
-    // Patrón 1: columna DESC% explícita — precio desc% $ importe (sin IVA, sin IVA en medio)
-    // Solo aplica si la palabra "desc" o "descuento" aparece en el encabezado
-    let totalSinDesc = 0;
-    let totalConDesc = 0;
+    // Intento 1: "Descuento: 5%" o "Desc: 3%" o "5% descuento" explícito en texto
+    const descExplicit = flatText.match(/desc(?:uento)?\s*[:\-]?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/i)
+                      || flatText.match(/(\d{1,2}(?:[.,]\d{1,2})?)\s*%\s*(?:de\s*)?desc(?:uento)?/i);
+    if (descExplicit) {
+      result.descuentoPct = parseFloat((descExplicit[1] || descExplicit[0]).replace(',', '.')) || 0;
+    }
 
-    const tieneColumnaDesc = /\bdesc(?:uento)?\b/i.test(flatText);
-
-    if (tieneColumnaDesc) {
-      // Patrón: precio desc% $ importe (formato sin IVA en línea)
-      const linePatternISARACK = /([\d.,]+)\s+([\d.,]+)\s+\$\s*([\d.,]+)/g;
-      const matchesISARACK = [...flatText.matchAll(linePatternISARACK)];
-      matchesISARACK.forEach(m => {
+    // Intento 2: columna DESC% en tabla — calcular descuento global promedio ponderado
+    if (result.descuentoPct === 0 && /\bdesc(?:uento)?\b/i.test(flatText)) {
+      let totalSinDesc = 0;
+      let totalConDesc = 0;
+      const linePattern = /([\d.,]+)\s+([\d.,]+)\s+\$?\s*([\d.,]+)/g;
+      [...flatText.matchAll(linePattern)].forEach(m => {
         const precio  = parseEuro(m[1]);
         const desc    = parseEuro(m[2]);
         const importe = parseEuro(m[3]);
-        if (precio > 0 && importe > 0 && desc > 0 && desc <= 30) {
-          const factor = 1 - desc/100;
-          const importeSinDesc = factor > 0 ? importe / factor : importe;
-          totalConDesc += importe;
-          totalSinDesc += importeSinDesc;
+        if (precio > 0 && importe > 0 && desc >= 0.1 && desc <= 30) {
+          const factor = 1 - desc / 100;
+          if (factor > 0) {
+            totalConDesc += importe;
+            totalSinDesc += importe / factor;
+          }
         }
       });
-
       if (totalSinDesc > 0 && totalConDesc > 0) {
-        const ahorro = totalSinDesc - totalConDesc;
-        result.descuentoPct = Math.round((ahorro / totalSinDesc) * 100 * 10) / 10;
-        if (result.descuentoPct < 0) result.descuentoPct = 0;
+        const pctCalc = Math.round(((totalSinDesc - totalConDesc) / totalSinDesc) * 100 * 10) / 10;
+        if (pctCalc > 0) result.descuentoPct = pctCalc;
       }
     }
 
-    // Fallback: buscar descuento explícito en el texto (ej: "Descuento: 3%" o "Desc: 5%")
-    if (result.descuentoPct === 0) {
-      const descMatch = flatText.match(/descuento\s*[:\-]?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/i);
-      if (descMatch) result.descuentoPct = parseFloat(descMatch[1].replace(',','.'));
-    }
-
-    // No más fallbacks — si no hay descuento explícito, queda en 0
-
-    // Mapear descuento → % comisión
-    // 0%        → 2.20%
-    // 1%-3%     → 1.90%
-    // 4%-6%     → 1.60%
-    // 7%-10%    → 1.30%
+    // ── MAPEAR DESCUENTO → % COMISIÓN ────────────────────────────
+    // Sin descuento (0%)       → 2.20%
+    // Descuento 0.1% – 3%     → 1.90%
+    // Descuento 3.1% – 6%     → 1.60%
+    // Descuento 6.1% o más    → 1.30%
     function descuentoToPct(desc) {
-      if (desc < 0.1)  return 2.20;  // sin descuento
-      if (desc < 3)    return 1.90;  // 0.1% a 2.9%
-      if (desc < 6)    return 1.60;  // 3% a 5.9%
-      if (desc <= 10)  return 1.30;  // 6% a 10%
+      const d = parseFloat(desc) || 0;
+      if (d < 0.1)  return 2.20;
+      if (d <= 3)   return 1.90;
+      if (d <= 6)   return 1.60;
       return 1.30;
     }
     result.pctSugerido = descuentoToPct(result.descuentoPct);
@@ -4984,8 +4977,8 @@
       if (pctInd) {
         pctInd.textContent = window._pendingPctSugerido.toFixed(2) + '%';
         const d = data.descuentoPct || 0;
-        const noteMap = {2.20:'(0% desc.)', 1.90:'(1–3% desc.)', 1.60:'(4–6% desc.)', 1.30:'(7–10% desc.)'};
-        if (pctNote) pctNote.textContent = noteMap[window._pendingPctSugerido] || '(detectado)';
+        const noteMap = {2.20:'(sin desc.)', 1.90:'(desc. 0.1–3%)', 1.60:'(desc. 3.1–6%)', 1.30:'(desc. >6%)'};
+        if (pctNote) pctNote.textContent = d > 0 ? '(desc. detectado: ' + d + '%)' : (noteMap[window._pendingPctSugerido] || '(sin desc.)');
         pctInd.style.color = window._pendingPctSugerido === 2.20 ? '#1a1a1a' : '#c85a00';
       }
       if (data.cotizacion) document.getElementById('newOdoo').value = data.cotizacion;
