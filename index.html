@@ -760,6 +760,13 @@
       </button>
     </span>
     <span class="stat-val" id="totalGanancias" title="Comisiones pagadas convertidas a MXN usando TC DOF $17.3908">$2,380.13 MXN</span>
+  <div class="stat-item" style="border-left:1px solid #444;padding-left:16px;margin-left:4px;">
+    <span class="stat-label" style="display:flex;align-items:center;gap:6px;">
+      Sin Factura MXN
+      <button id="eyeBtnSF" onclick="toggleGananciasSF()" title="Mostrar/Ocultar sin factura" style="background:none;border:none;cursor:pointer;padding:0;color:#888;font-size:14px;line-height:1;">👁</button>
+    </span>
+    <span class="stat-val" id="totalGananciasSF" style="color:#f0a500;" title="Comisiones de ventas sin factura (cuenta separada)">$0.00 MXN</span>
+  </div>
   </div>
   <div class="stat-item" style="border-left:1px solid #333;padding-left:16px;margin-left:4px;">
     <span class="stat-label">TC DOF <span id="tcFecha" style="font-size:8px;color:#777;letter-spacing:.5px;">2026-04-24</span></span>
@@ -5105,12 +5112,12 @@
       <td>
         ${o.facturaNum ? `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;color:#111;display:block;margin-bottom:3px;">${o.facturaNum}</span>` : ''}
         ${buildFileBtn('factura', o, 'btn-factura', '🧾 FACTURA')}
-        ${!o.files.factura ? `
-          <button class="cell-btn ${o.facturaSolicitada ? 'btn-factura-sol' : 'btn-factura'}"
-            style="margin-top:3px;font-size:10px;"
-            onclick="toggleSolicitada(${o.id})">
-            ${o.facturaSolicitada ? '📨 SOLICITADA' : '📨 SOLICITAR'}
-          </button>` : ''}
+        <button
+          onclick="toggleSinFactura(${o.id})"
+          title="Sin factura"
+          style="display:block;margin-top:2px;padding:1px 4px;font-size:7px;line-height:1.2;background:${o.sinFactura ? '#6b3410' : 'transparent'};color:${o.sinFactura ? '#e07040' : '#555'};border:1px solid ${o.sinFactura ? '#8b4513' : '#444'};border-radius:3px;cursor:pointer;letter-spacing:.3px;font-family:'Barlow Condensed',sans-serif;">
+          ${o.sinFactura ? '🚫 s/fac' : 's/fac'}
+        </button>
       </td>
       <!-- CLIENTE -->
       <td>
@@ -5551,6 +5558,16 @@
     updateRow(id);
   }
 
+  // ── SIN FACTURA ──────────────────────────────────────────────
+  function toggleSinFactura(id) {
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+    o.sinFactura = !o.sinFactura;
+    saveOrders();
+    updateRow(id);
+    updateStats();
+  }
+
   // ── OBSERVACIONES ────────────────────────────────────────────
   function limitWords(el, max) {
     const words = el.value.trim().split(/\s+/).filter(w => w.length > 0);
@@ -5835,7 +5852,8 @@
     // - MXN → se suma directo
     // - Total = suma unificada en MXN
     const tc = tcDOF || 0;
-    let totalMXN = 0;
+    let totalMXN   = 0;   // con factura
+    let totalSFMXN = 0;   // sin factura (cuenta separada)
 
     orders.forEach(o => {
       // Pagada = tiene fecha de pago + archivo, sin importar el % de anticipo
@@ -5843,9 +5861,16 @@
       if (!isPagado) return;
       const pct    = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : o.pct;
       const antPct = (o.anticipoPct !== undefined && o.anticipoPct !== null) ? o.anticipoPct : 100;
-      // Comisión = monto × % comisión × % anticipo (igual que columna COMISIÓN)
-      if (o.dlls  > 0) totalMXN += tc > 0 ? (o.dlls  * (pct/100) * (antPct/100)) * tc : 0;
-      if (o.pesos > 0) totalMXN +=           o.pesos * (pct/100) * (antPct/100);
+      // Comisión = monto × % comisión × % anticipo
+      let comMXN = 0;
+      if (o.dlls  > 0) comMXN += tc > 0 ? (o.dlls  * (pct/100) * (antPct/100)) * tc : 0;
+      if (o.pesos > 0) comMXN +=           o.pesos * (pct/100) * (antPct/100);
+      // Separar según si tiene o no factura
+      if (o.sinFactura) {
+        totalSFMXN += comMXN;
+      } else {
+        totalMXN   += comMXN;
+      }
     });
 
     const ganEl = document.getElementById('totalGanancias');
@@ -5854,8 +5879,15 @@
         ? '$' + totalMXN.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' MXN'
         : '$' + totalMXN.toFixed(2) + ' MXN' + (tc === 0 ? ' (sin TC)' : '');
       ganEl.title = tc > 0
-        ? 'Comisiones pagadas convertidas a MXN usando TC DOF $' + tc.toFixed(4)
+        ? 'Comisiones CON factura — TC DOF $' + tc.toFixed(4)
         : 'TC DOF no disponible — activa internet';
+    }
+    const ganSFEl = document.getElementById('totalGananciasSF');
+    if (ganSFEl && ganSFEl.dataset.hidden !== '1') {
+      ganSFEl.textContent = tc > 0
+        ? '$' + totalSFMXN.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' MXN'
+        : '$' + totalSFMXN.toFixed(2) + ' MXN';
+      ganSFEl.title = 'Comisiones de ventas SIN factura (cuenta separada) — TC DOF $' + (tc > 0 ? tc.toFixed(4) : 'N/A');
     }
 
     // Contadores botones superiores
@@ -6273,6 +6305,24 @@
 
   // ── TOGGLE GANANCIAS ─────────────────────────────────────────
   let gananciaVisible = true;
+
+  let gananciaSFVisible = true;
+  function toggleGananciasSF() {
+    gananciaSFVisible = !gananciaSFVisible;
+    const el  = document.getElementById('totalGananciasSF');
+    const btn = document.getElementById('eyeBtnSF');
+    if (gananciaSFVisible) {
+      el.dataset.hidden = '';
+      btn.textContent = '👁';
+      btn.title = 'Ocultar sin factura';
+      updateStats();
+    } else {
+      el.dataset.hidden = '1';
+      el.textContent = '$ ••••••';
+      btn.textContent = '🙈';
+      btn.title = 'Mostrar sin factura';
+    }
+  }
 
   function toggleGanancias() {
     gananciaVisible = !gananciaVisible;
