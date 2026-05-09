@@ -171,8 +171,8 @@
   .btn-cotizacion:hover { background: var(--orange2); }
   .btn-factura { background: #444; color: #fff; }
   .btn-factura:hover { background: #555; }
-  .btn-po { background: #2d5a8e; color: #fff; }
-  .btn-po:hover { background: #3a6fa0; }
+  .btn-po { background: #555; color: #fff; }
+  .btn-po:hover { background: #666; }
   .btn-pago { background: #c0392b; color: #fff; }
   .btn-pago:hover { background: #e74c3c; }
   .btn-hoja { background: #555; color: #fff; }
@@ -512,9 +512,19 @@
     min-height: 0;
   }
   table { width: 100%; border-collapse: collapse; min-width: 1300px; }
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
   thead th {
     background: #2a2a2a;
     border-bottom: 2px solid #1a1a1a;
+  }
+  #filterRow {
+    position: sticky;
+    top: 36px;
+    z-index: 49;
   }
   #filterRow td {
     background: #2e2e2e !important;
@@ -5161,11 +5171,11 @@
             ${[0,1,2].map(i => {
               const p = pagos[i] || {pct:0,fecha:'',file:null};
               const hasPago = !!(p.file || p.fecha);
-              const bg    = hasPago ? '#152015' : '#1c1c1c';
-              const bc    = hasPago ? '#2a4a2a' : '#232323';
-              const color = hasPago ? '#4caf50' : '#2e2e2e';
-              const fcolor= hasPago ? '#3a6a3a' : '#252525';
-              const pcolor= hasPago ? '#3a6a3a' : '#2a2a2a';
+              const bg    = hasPago ? '#152015' : '#555';
+              const bc    = hasPago ? '#2a4a2a' : '#666';
+              const color = hasPago ? '#4caf50' : '#ccc';
+              const fcolor= hasPago ? '#3a6a3a' : '#999';
+              const pcolor= hasPago ? '#3a6a3a' : '#aaa';
               const fecha = p.fecha ? p.fecha.slice(5).replace('-','/') : '—';
               return '<div style="display:flex;flex-direction:column;align-items:center;gap:0px;">'
                 + '<div onclick="openPagoMenu('+o.id+','+i+')" title="Pago '+(i+1)+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:22px;height:22px;border-radius:2px;border:1px solid '+bc+';background:'+bg+';cursor:pointer;gap:0;">'
@@ -5175,7 +5185,7 @@
                 + '</div>'
                 + '<input type="number" min="0" max="100" step="1" placeholder="%" value="'+(p.pct||'')+'"'
                 + ' onchange="updatePagoPct('+o.id+','+i+',this.value)"'
-                + ' style="width:22px;margin-top:1px;background:#141414;border:1px solid #2a2a2a;color:#666;font-size:7px;font-family:Barlow Condensed,sans-serif;text-align:center;padding:1px 0;border-radius:2px;" />'
+                + ' style="width:22px;margin-top:1px;background:#444;border:1px solid #555;color:#ddd;font-size:7px;font-family:Barlow Condensed,sans-serif;text-align:center;padding:1px 0;border-radius:2px;" />'
                 + '</div>';
             }).join('')}
             <span style="font-family:Barlow Condensed,sans-serif;font-size:7px;margin-left:3px;color:${isPagado?'#4caf50':'#3a3a2a'};">${isPagado?'✓':'◷'} ${totalPct}%</span>
@@ -5544,6 +5554,20 @@
   function updateAnticipo(id, val) { /* legacy — reemplazado por sistema de pagos */ }
 
   // ── SISTEMA DE PAGOS (P1 / P2 / P3) ─────────────────────────
+  // ── MIGRACIÓN datos anteriores ──────────────────────────────
+  // Órdenes con fechaPago + files.pago (sistema viejo) → migrar a pagos[0] con 100%
+  function migrateOrderPagos(o) {
+    if (o.pagos && o.pagos.some(p => p.fecha || p.file || p.pct > 0)) return; // ya migrado
+    if ((o.fechaPago || (o.files && o.files.pago)) && (!o.pagos || !o.pagos.some(p => p.pct > 0))) {
+      const pct = (o.anticipoPct !== undefined && o.anticipoPct !== null) ? Number(o.anticipoPct) : 100;
+      o.pagos = [
+        { pct: pct, fecha: o.fechaPago || '', file: (o.files && o.files.pago) ? o.files.pago : null },
+        { pct: 0, fecha: '', file: null },
+        { pct: 0, fecha: '', file: null }
+      ];
+    }
+  }
+
   function ensurePagos(o) {
     if (!o.pagos || !Array.isArray(o.pagos) || o.pagos.length < 3) {
       o.pagos = [
@@ -6187,7 +6211,10 @@
     function loadFromLocal() {
       try {
         const local = localStorage.getItem('b_'+(bimestreActivo||'def'));
-        if (local) orders = JSON.parse(local);
+        if (local) {
+          orders = JSON.parse(local);
+          orders.forEach(migrateOrderPagos); // migrar datos del sistema viejo
+        }
       } catch(e) { orders = []; }
       renderOrders();
       updateStats();
@@ -6249,6 +6276,12 @@
           if (!d.pct) d.pct = 2.20;
           if (!d.status) d.status = 'En Proceso';
           if (!d.pub) d.pub = 'No Publicado';
+          // Migrar pagos del sistema viejo si aplica
+          if (localO) {
+            d.pagos = localO.pagos || d.pagos;
+            d.fechaPago = localO.fechaPago || d.fechaPago;
+          }
+          migrateOrderPagos(d);
           return d;
         });
         // Sort by ing date client-side
