@@ -33,6 +33,7 @@
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 18px; height: var(--header-h);
     border-bottom: 2px solid var(--orange);
+    
   }
   .logo-wrap { display: flex; align-items: center; gap: 10px; }
   .logo-icon {
@@ -62,6 +63,7 @@
     background: var(--bg2); padding: 10px 18px;
     display: flex; align-items: center; gap: 8px;
     border-bottom: 1px solid var(--border);
+    
   }
   .search-wrap {
     flex: 1; display: flex; align-items: center; gap: 8px;
@@ -99,6 +101,7 @@
     background: var(--bg); padding: 8px 18px;
     display: flex; align-items: center; gap: 28px;
     border-bottom: 1px solid var(--border);
+    
   }
   .stat-item { display: flex; flex-direction: column; gap: 1px; }
   .stat-label {
@@ -110,10 +113,6 @@
     font-weight: 700; color: var(--green); letter-spacing: 1px;
   }
   .stat-val.white { color: #fff; }
-
-  /* TABLE WRAPPER */
-  .table-wrap { overflow-x: auto; background: #e8e8e8; padding: 0; }
-  table { width: 100%; border-collapse: collapse; min-width: 1300px; }
 
   /* THEAD */
   thead tr {
@@ -479,15 +478,8 @@
   }
   .btn-factura-sol:hover { background: #f0b820 !important; }
 
-  /* ANTICIPO */
-  .anticipo-input {
-    width: 46px; background: #1a1a1a; border: 1px solid #444;
-    color: #e0e0e0; font-family: 'Barlow Condensed', sans-serif;
-    font-size: 13px; font-weight: 700; text-align: center;
-    padding: 3px 2px; border-radius: 3px; outline: none;
-    transition: border-color .2s;
-  }
-  .anticipo-input:focus { border-color: #6b6b6b; }
+  /* PAGOS */
+  .anticipo-input { display: none; } /* legacy — ya no se usa */
 
   /* STATUS BADGE automático */
   .status-badge {
@@ -499,38 +491,35 @@
   .status-instalado  { background: #27ae60; color: #fff; }
   .status-entregado  { background: #2196F3; color: #fff; }
 
-  /* STICKY */
+  /* LAYOUT FIJO - todo el header es inmóvil, solo tbody scrollea */
+  html, body { height: 100%; overflow: hidden; margin: 0; }
+  .page-shell {
+    display: flex; flex-direction: column;
+    height: 100vh; overflow: hidden;
+  }
   .table-wrap {
-    height: calc(100vh - 162px);
-    overflow-y: scroll;
+    flex: 1;
     overflow-x: auto;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
-  thead {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    will-change: transform;
+  .table-inner {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: visible;
+    min-height: 0;
   }
+  table { width: 100%; border-collapse: collapse; min-width: 1300px; }
   thead th {
     background: #2a2a2a;
     border-bottom: 2px solid #1a1a1a;
-    /* Force GPU layer - prevents bleed-through */
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-  }
-  #filterRow {
-    position: sticky;
-    top: 36px;
-    z-index: 49;
-    will-change: transform;
-    background: #2e2e2e;
   }
   #filterRow td {
     background: #2e2e2e !important;
-    border-top: 0px;
+    border-top: 0;
     border-bottom: 1px solid #1a1a1a;
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
   }
 
   /* Ensure rows don't bleed through */
@@ -687,6 +676,7 @@
 </style>
 </head>
 <body>
+<div class="page-shell">
 
 <!-- ═══ LOGIN SCREEN ═══ -->
 <div id="loginScreen">
@@ -760,12 +750,12 @@
       </button>
     </span>
     <span class="stat-val" id="totalGanancias" title="Comisiones pagadas convertidas a MXN usando TC DOF $17.3908">$2,380.13 MXN</span>
-  <div class="stat-item" style="border-left:1px solid #444;padding-left:16px;margin-left:4px;">
-    <span class="stat-label" style="display:flex;align-items:center;gap:6px;">
-      Sin Factura MXN
-      <button id="eyeBtnSF" onclick="toggleGananciasSF()" title="Mostrar/Ocultar sin factura" style="background:none;border:none;cursor:pointer;padding:0;color:#888;font-size:14px;line-height:1;">👁</button>
+  <div style="padding-left:12px;margin-left:4px;display:flex;flex-direction:column;gap:1px;opacity:0.5;">
+    <span style="font-family:'Barlow Condensed',sans-serif;font-size:8px;letter-spacing:1.5px;color:#888;text-transform:uppercase;display:flex;align-items:center;gap:4px;">
+      s/fac
+      <button id="eyeBtnSF" onclick="toggleGananciasSF()" title="Mostrar/Ocultar sin factura" style="background:none;border:none;cursor:pointer;padding:0;color:#666;font-size:10px;line-height:1;">👁</button>
     </span>
-    <span class="stat-val" id="totalGananciasSF" style="color:#f0a500;" title="Comisiones de ventas sin factura (cuenta separada)">$0.00 MXN</span>
+    <span id="totalGananciasSF" style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:600;color:#888;letter-spacing:.5px;" title="Comisiones sin factura">$0.00 MXN</span>
   </div>
   </div>
   <div class="stat-item" style="border-left:1px solid #333;padding-left:16px;margin-left:4px;">
@@ -790,6 +780,7 @@
 
 <!-- TABLE -->
 <div class="table-wrap">
+<div class="table-inner">
 <table id="mainTable">
   <thead>
     <tr>
@@ -801,7 +792,6 @@
       <th>PESOS</th>
       <th>%</th>
       <th>COMISION</th>
-      <th title="Anticipo / Porcentaje de pago">💵 %</th>
       <th class="th-sort" onclick="sortBy(&#39;fechaPago&#39;)" title="Ordenar por fecha">FECHA PAGO <span class="sort-icon" id="si-fechaPago">⇅</span></th>
       <th class="th-sort" onclick="sortBy(&#39;hoja&#39;)" title="Con/sin PDF">HOJA ENTREGA <span class="sort-icon" id="si-hoja">⇅</span></th>
       <th class="th-sort" onclick="sortBy(&#39;foto&#39;)" title="Con/sin imagen">EVIDENCIA <span class="sort-icon" id="si-foto">⇅</span></th>
@@ -823,7 +813,7 @@
       </td>
       <td><input type="text" id="fCliente" placeholder="Buscar cliente..." oninput="applyFilters()"></td>
       <td></td>
-      <td></td><td></td><td></td><td></td><td></td>
+      <td></td><td></td><td></td><td></td>
       <td>
         <select id="fFechaPago" onchange="applyFilters()">
           <option value="">Todas</option>
@@ -4502,6 +4492,9 @@
     </tr></tbody>
 </table>
 </div>
+</div>
+
+</div><!-- end page-shell -->
 
 <!-- BOTTOM BAR -->
 <div class="bottom-bar">
@@ -4651,6 +4644,8 @@
     return `${String(d.getDate()).padStart(2,'0')} ${months[d.getMonth()]} ${d.getFullYear()}`;
   }
   document.getElementById('headerDate').textContent = formatDate(new Date());
+
+
 
   function todayISO() {
     const d = new Date();
@@ -5026,6 +5021,7 @@
       ing: todayISO(),
       pct: window._pendingPctSugerido || 2.20, pctCustom: null,
       fechaPago: '', status: 'En Proceso', pub: 'No Publicado', observaciones: '', facturaSolicitada: false, anticipoPct: 100,
+      pagos: [{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null}],
       files: { cotizacion: window._pendingCotPdf || null, factura: null, po: null, pago: null, hoja: null, foto: null }
     };
     orders.push(order);
@@ -5155,31 +5151,36 @@
           ${comision > 0 ? (comisionCurrency === 'dlls' ? `$${comision.toFixed(2)}` : `$${comision.toFixed(2)} MXN`) : '—'}
         </span>
       </td>
-      <!-- ANTICIPO -->
-      <td style="text-align:center;min-width:60px;max-width:70px;">
-        <div style="display:flex;align-items:center;justify-content:center;gap:2px;">
-          <input
-            type="number" class="anticipo-input"
-            min="1" max="100" step="1"
-            value="${o.anticipoPct !== undefined && o.anticipoPct !== null ? o.anticipoPct : 100}"
-            onchange="updateAnticipo(${o.id}, this.value)"
-            title="% de anticipo"
-          /><span style="font-family:'Barlow Condensed',sans-serif;font-size:12px;color:#888;">%</span>
-        </div>
+      <!-- PAGOS -->
+      <td style="min-width:140px;">
         ${(() => {
-          const base = o.dlls || o.pesos || 0;
-          const pct = (o.anticipoPct !== undefined && o.anticipoPct !== null) ? o.anticipoPct : 100;
-          const monto = base * (pct / 100);
-          const sym = o.dlls ? 'USD' : 'MXN';
-          return base > 0 && pct < 100
-            ? '<span style="font-size:10px;color:#f0a500;font-family:Barlow Condensed,sans-serif;font-weight:700;">$'+monto.toFixed(2)+' '+sym+'</span>'
-            : '';
+          const pagos = o.pagos || [{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null}];
+          const totalPct = pagos.reduce((s,p) => s + (Number(p.pct)||0), 0);
+          const isPagado = totalPct >= 100;
+          return `<div style="display:flex;align-items:center;gap:3px;">
+            ${[0,1,2].map(i => {
+              const p = pagos[i] || {pct:0,fecha:'',file:null};
+              const hasPago = !!(p.file || p.fecha);
+              const bg    = hasPago ? '#152015' : '#1c1c1c';
+              const bc    = hasPago ? '#2a4a2a' : '#232323';
+              const color = hasPago ? '#4caf50' : '#2e2e2e';
+              const fcolor= hasPago ? '#3a6a3a' : '#252525';
+              const pcolor= hasPago ? '#3a6a3a' : '#2a2a2a';
+              const fecha = p.fecha ? p.fecha.slice(5).replace('-','/') : '—';
+              return '<div style="display:flex;flex-direction:column;align-items:center;gap:0px;">'
+                + '<div onclick="openPagoMenu('+o.id+','+i+')" title="Pago '+(i+1)+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:22px;height:22px;border-radius:2px;border:1px solid '+bc+';background:'+bg+';cursor:pointer;gap:0;">'
+                + '<span style="font-family:Barlow Condensed,sans-serif;font-size:7px;font-weight:700;color:'+color+';">P'+(i+1)+'</span>'
+                + (p.pct ? '<span style="font-family:Barlow Condensed,sans-serif;font-size:6px;color:'+pcolor+';">'+p.pct+'%</span>' : '')
+                + '<span style="font-family:Barlow Condensed,sans-serif;font-size:5px;color:'+fcolor+';">'+fecha+'</span>'
+                + '</div>'
+                + '<input type="number" min="0" max="100" step="1" placeholder="%" value="'+(p.pct||'')+'"'
+                + ' onchange="updatePagoPct('+o.id+','+i+',this.value)"'
+                + ' style="width:22px;margin-top:1px;background:#141414;border:1px solid #2a2a2a;color:#666;font-size:7px;font-family:Barlow Condensed,sans-serif;text-align:center;padding:1px 0;border-radius:2px;" />'
+                + '</div>';
+            }).join('')}
+            <span style="font-family:Barlow Condensed,sans-serif;font-size:7px;margin-left:3px;color:${isPagado?'#4caf50':'#3a3a2a'};">${isPagado?'✓':'◷'} ${totalPct}%</span>
+          </div>`;
         })()}
-      </td>
-      <!-- FECHA PAGO -->
-      <td>
-        <input type="date" class="date-input" value="${o.fechaPago||''}" onchange="updateField(${o.id},'fechaPago',this.value)" style="margin-bottom:4px;display:block;"/>
-        ${buildFileBtn('pago', o, 'btn-pago', '💳 PAGO')}
       </td>
       <!-- HOJA ENTREGA -->
       <td>
@@ -5540,13 +5541,59 @@
   }
 
   // ── ANTICIPO ─────────────────────────────────────────────────
-  function updateAnticipo(id, val) {
+  function updateAnticipo(id, val) { /* legacy — reemplazado por sistema de pagos */ }
+
+  // ── SISTEMA DE PAGOS (P1 / P2 / P3) ─────────────────────────
+  function ensurePagos(o) {
+    if (!o.pagos || !Array.isArray(o.pagos) || o.pagos.length < 3) {
+      o.pagos = [
+        o.pagos?.[0] || { pct: 0, fecha: '', file: null },
+        o.pagos?.[1] || { pct: 0, fecha: '', file: null },
+        o.pagos?.[2] || { pct: 0, fecha: '', file: null }
+      ];
+    }
+  }
+
+  function updatePagoPct(id, idx, val) {
     const o = orders.find(x => x.id === id);
     if (!o) return;
-    const pct = Math.min(100, Math.max(1, parseFloat(val) || 100));
-    o.anticipoPct = pct;
+    ensurePagos(o);
+    o.pagos[idx].pct = Math.min(100, Math.max(0, parseFloat(val) || 0));
     saveOrders();
     updateRow(id);
+    updateStats();
+  }
+
+  function openPagoMenu(id, idx) {
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+    ensurePagos(o);
+    // Reutilizar el file picker existente — subir comprobante del pago idx
+    window._pagoFileCtx = { id, idx };
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*,application/pdf';
+    inp.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const today = new Date();
+      const fecha = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+      // Guardar como base64 o subir a Firebase si está disponible
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const o2 = orders.find(x => x.id === id);
+        if (!o2) return;
+        ensurePagos(o2);
+        o2.pagos[idx].fecha = fecha;
+        o2.pagos[idx].file  = { data: ev.target.result, name: file.name };
+        // Si no tiene % asignado aún, dejar en 0 para que el usuario lo ponga
+        saveOrders();
+        updateRow(id);
+        updateStats();
+      };
+      reader.readAsDataURL(file);
+    };
+    inp.click();
   }
 
   // ── FACTURA SOLICITADA ───────────────────────────────────────
@@ -5800,42 +5847,60 @@
     const today = new Date();
     const fechaHoy = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
 
-    // ── Fuente 1: ExchangeRate-API (gratuita, sin CORS) ────────
+    // ── Fuente 1: Banxico — TC DOF oficial (SF43718) ─────────────
+    // Serie SF43718 = "Tipo de cambio pesos por dólar E.U.A. para solventar obligaciones denominadas en moneda extranjera" (DOF)
     try {
-      const r1 = await fetch('https://open.er-api.com/v6/latest/USD');
-      if (r1.ok) {
-        const d1 = await r1.json();
-        if (d1.rates && d1.rates.MXN) {
-          tcDOF = d1.rates.MXN;
-          tcFechaStr = fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API'; }
-          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-          updateStats();
-          return;
+      const hoy  = fechaHoy;
+      const url  = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/${hoy}/${hoy}?token=fe8de18a13fb8e65d1f1d8bba38ba36c38c3bede3f2d4e0be40e04efcfe7ade6`;
+      const rb   = await fetch(url);
+      if (rb.ok) {
+        const db = await rb.json();
+        const datos = db?.bmx?.series?.[0]?.datos;
+        if (datos && datos.length > 0) {
+          const val = parseFloat(datos[datos.length - 1].dato);
+          if (!isNaN(val) && val > 5) {
+            tcDOF = val;
+            tcFechaStr = fechaHoy;
+            if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico DOF oficial'; }
+            if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+            updateStats();
+            return;
+          }
         }
       }
-    } catch(e1) { /* sin internet, usar fallback */ }
+    } catch(eb) { /* continuar */ }
 
-    // ── Fuente 2: Fixer.io alternativa ─────────────────────────
+    // ── Fuente 2: Banxico buscando los últimos 7 días (por si hoy no hay publicación) ──
     try {
-      const r2 = await fetch('https://api.fxratesapi.com/latest?currencies=MXN&base=USD');
-      if (r2.ok) {
-        const d2 = await r2.json();
-        if (d2.rates && d2.rates.MXN) {
-          tcDOF = d2.rates.MXN;
-          tcFechaStr = fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: FXRates'; }
-          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-          updateStats();
-          return;
+      const d7 = new Date(today); d7.setDate(d7.getDate() - 7);
+      const from7 = d7.getFullYear()+'-'+String(d7.getMonth()+1).padStart(2,'0')+'-'+String(d7.getDate()).padStart(2,'0');
+      const url2 = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/${from7}/${fechaHoy}?token=fe8de18a13fb8e65d1f1d8bba38ba36c38c3bede3f2d4e0be40e04efcfe7ade6`;
+      const rb2  = await fetch(url2);
+      if (rb2.ok) {
+        const db2 = await rb2.json();
+        const datos2 = db2?.bmx?.series?.[0]?.datos;
+        if (datos2 && datos2.length > 0) {
+          // Tomar el más reciente
+          const ultimo = datos2.filter(d => d.dato !== 'N/E').pop();
+          if (ultimo) {
+            const val2 = parseFloat(ultimo.dato);
+            if (!isNaN(val2) && val2 > 5) {
+              tcDOF = val2;
+              tcFechaStr = ultimo.fecha;
+              if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico DOF oficial'; }
+              if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+              updateStats();
+              return;
+            }
+          }
         }
       }
-    } catch(e2) { /* continuar a fallback */ }
+    } catch(eb2) { /* continuar a fallback */ }
 
     // ── Fallback offline ─────────────────────────────────────────
-    tcDOF = 17.4948;
+    tcDOF = 17.2400;
     tcFechaStr = fechaHoy + ' (offline)';
-    if (tcEl) { tcEl.textContent = '$17.4948'; tcEl.title = 'Sin conexión — valor aproximado'; }
+    if (tcEl) { tcEl.textContent = '$17.2400'; tcEl.title = 'Sin conexión — último TC DOF conocido'; }
     if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
     updateStats();
   }
@@ -5856,15 +5921,17 @@
     let totalSFMXN = 0;   // sin factura (cuenta separada)
 
     orders.forEach(o => {
-      // Pagada = tiene fecha de pago + archivo, sin importar el % de anticipo
-      const isPagado = o.fechaPago && o.files && o.files.pago;
+      // Pagada = tiene al menos un pago subido Y la suma de % llega a 100
+      const pagos = o.pagos || [];
+      const totalPagoPct = pagos.reduce((s, p) => s + (Number(p.pct) || 0), 0);
+      const tieneArchivo  = pagos.some(p => p.file || p.fecha);
+      const isPagado = tieneArchivo && totalPagoPct >= 100;
       if (!isPagado) return;
-      const pct    = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : o.pct;
-      const antPct = (o.anticipoPct !== undefined && o.anticipoPct !== null) ? o.anticipoPct : 100;
-      // Comisión = monto × % comisión × % anticipo
+      const pct = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : o.pct;
+      // Cuando isPagado=true, el 100% ya está cubierto — comisión sobre monto completo
       let comMXN = 0;
-      if (o.dlls  > 0) comMXN += tc > 0 ? (o.dlls  * (pct/100) * (antPct/100)) * tc : 0;
-      if (o.pesos > 0) comMXN +=           o.pesos * (pct/100) * (antPct/100);
+      if (o.dlls  > 0) comMXN += tc > 0 ? (o.dlls  * (pct/100)) * tc : 0;
+      if (o.pesos > 0) comMXN +=           o.pesos * (pct/100);
       // Separar según si tiene o no factura
       if (o.sinFactura) {
         totalSFMXN += comMXN;
