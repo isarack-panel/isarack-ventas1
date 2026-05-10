@@ -5557,11 +5557,14 @@
   // ── MIGRACIÓN datos anteriores ──────────────────────────────
   // Órdenes con fechaPago + files.pago (sistema viejo) → migrar a pagos[0] con 100%
   function migrateOrderPagos(o) {
-    if (o.pagos && o.pagos.some(p => p.fecha || p.file || p.pct > 0)) return; // ya migrado
-    if ((o.fechaPago || (o.files && o.files.pago)) && (!o.pagos || !o.pagos.some(p => p.pct > 0))) {
+    if (o.pagos && o.pagos.some(p => p.fecha || p.file || Number(p.pct) > 0)) return; // ya migrado
+    const tienePago = o.fechaPago || (o.files && o.files.pago);
+    if (tienePago) {
+      // anticipoPct por defecto 100 — si era 100 o no estaba definido, migrar como pago completo
       const pct = (o.anticipoPct !== undefined && o.anticipoPct !== null) ? Number(o.anticipoPct) : 100;
+      const pagoFile = (o.files && o.files.pago) ? o.files.pago : null;
       o.pagos = [
-        { pct: pct, fecha: o.fechaPago || '', file: (o.files && o.files.pago) ? o.files.pago : null },
+        { pct: pct || 100, fecha: o.fechaPago || '', file: pagoFile },
         { pct: 0, fecha: '', file: null },
         { pct: 0, fecha: '', file: null }
       ];
@@ -5948,7 +5951,7 @@
       // Pagada = tiene al menos un pago subido Y la suma de % llega a 100
       const pagos = o.pagos || [];
       const totalPagoPct = pagos.reduce((s, p) => s + (Number(p.pct) || 0), 0);
-      const tieneArchivo  = pagos.some(p => p.file || p.fecha);
+      const tieneArchivo  = pagos.some(p => p.file || p.fecha) || !!(o.fechaPago);
       const isPagado = tieneArchivo && totalPagoPct >= 100;
       if (!isPagado) return;
       const pct = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : o.pct;
