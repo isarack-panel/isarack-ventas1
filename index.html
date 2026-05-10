@@ -5181,7 +5181,7 @@
               const pcolor= hasPago ? '#3a6a3a' : '#aaa';
               const fecha = p.fecha ? p.fecha.slice(5).replace('-','/') : '—';
               return '<div style="display:flex;flex-direction:column;align-items:center;gap:0px;">'
-                + '<div onclick="openPagoMenu('+o.id+','+i+')" title="Pago '+(i+1)+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:22px;height:22px;border-radius:2px;border:1px solid '+bc+';background:'+bg+';cursor:pointer;gap:0;">'
+                + '<div onclick="openPagoFileMenu('+o.id+','+i+',this)" title="Pago '+(i+1)+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:22px;height:22px;border-radius:2px;border:1px solid '+bc+';background:'+bg+';cursor:pointer;gap:0;">'
                 + '<span style="font-family:Barlow Condensed,sans-serif;font-size:7px;font-weight:700;color:'+color+';">P'+(i+1)+'</span>'
                 + (p.pct ? '<span style="font-family:Barlow Condensed,sans-serif;font-size:6px;color:'+pcolor+';">'+p.pct+'%</span>' : '')
                 + '<span style="font-family:Barlow Condensed,sans-serif;font-size:5px;color:'+fcolor+';">'+fecha+'</span>'
@@ -5474,6 +5474,120 @@
       saveOrders();
       updateRow(id);
     }
+  }
+
+  // ── PAGOS: VER / CAMBIAR / QUITAR ────────────────────────────
+  function openPagoFileMenu(id, idx, triggerEl) {
+    const o = orders.find(x => x.id === id || x.id === Number(id) || String(x.id) === String(id));
+    ensurePagos(o);
+    const p = o.pagos[idx];
+    if (p && p.file) {
+      // Tiene archivo → mostrar menú VER/CAMBIAR/QUITAR
+      document.querySelectorAll('.file-action-menu').forEach(el => el.remove());
+      const menu = document.createElement('div');
+      menu.className = 'file-action-menu';
+      menu.innerHTML = `
+        <button onclick="previewPagoFile(${id},${idx});this.closest('.file-action-menu').remove()"><span class="fam-icon">👁️</span>VER</button>
+        <button onclick="uploadPagoFile(${id},${idx});this.closest('.file-action-menu').remove()"><span class="fam-icon">🔄</span>CAMBIAR</button>
+        <button onclick="deletePagoFile(${id},${idx});this.closest('.file-action-menu').remove()"><span class="fam-icon">🗑️</span>QUITAR</button>
+        <div class="fam-divider"></div>
+        <button class="fam-cancel" onclick="this.closest('.file-action-menu').remove()"><span class="fam-icon" style="font-size:14px;">✕</span>CANCELAR</button>
+      `;
+      document.body.appendChild(menu);
+      const el = triggerEl || document.activeElement;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const mw = 140; const mh = 180;
+        let top = rect.bottom + 4; let left = rect.left;
+        if (left + mw > window.innerWidth)  left = window.innerWidth - mw - 8;
+        if (top  + mh > window.innerHeight) top  = rect.top - mh - 4;
+        if (left < 8) left = 8;
+        menu.style.top = top + 'px'; menu.style.left = left + 'px';
+      }
+      const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } };
+      setTimeout(() => document.addEventListener('click', close), 10);
+    } else {
+      // Sin archivo → subir directamente
+      uploadPagoFile(id, idx);
+    }
+  }
+
+  function uploadPagoFile(id, idx) {
+    const o = orders.find(x => x.id === id || x.id === Number(id) || String(x.id) === String(id));
+    if (!o) return;
+    ensurePagos(o);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.PDF,image/*';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const today = new Date();
+      const fecha = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+      // Subir a Firebase Storage si disponible
+      if (window.storage && firebaseReady) {
+        try {
+          const path = 'orders/' + id + '/pago' + idx + '_' + file.name;
+          const ref = window.storage.ref(path);
+          await ref.put(file);
+          const url = await ref.getDownloadURL();
+          o.pagos[idx].file  = { name: file.name, url: url, path: path };
+          o.pagos[idx].fecha = o.pagos[idx].fecha || fecha;
+        } catch(err) {
+          const dataURL = await new Promise((res) => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(file); });
+          o.pagos[idx].file  = { name: file.name, data: dataURL };
+          o.pagos[idx].fecha = o.pagos[idx].fecha || fecha;
+        }
+      } else {
+        const dataURL = await new Promise((res) => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(file); });
+        o.pagos[idx].file  = { name: file.name, data: dataURL };
+        o.pagos[idx].fecha = o.pagos[idx].fecha || fecha;
+      }
+      _saveOneOrder(o);
+      updateRow(id);
+      updateStats();
+    };
+    input.click();
+  }
+
+  function previewPagoFile(id, idx) {
+    const o = orders.find(x => x.id === id || x.id === Number(id) || String(x.id) === String(id));
+    if (!o) return;
+    ensurePagos(o);
+    const f = o.pagos[idx].file;
+    if (!f) return;
+    if (f.url) { window.open(f.url, '_blank'); return; }
+    if (!f.data) return;
+    const overlay = document.getElementById('previewOverlay');
+    const content = document.getElementById('previewContent');
+    overlay.classList.add('open');
+    if (f.data.startsWith('data:image') || (f.name && /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name))) {
+      content.innerHTML = `<img src="${f.data}" alt="Pago ${idx+1}" style="max-width:92vw;max-height:90vh;border-radius:4px;"/>`;
+    } else {
+      try {
+        const base64 = f.data.split(',')[1];
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        content.innerHTML = `<iframe src="${blobUrl}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
+        overlay._blobUrl = blobUrl;
+      } catch(e) {
+        content.innerHTML = `<iframe src="${f.data}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
+      }
+    }
+  }
+
+  function deletePagoFile(id, idx) {
+    const o = orders.find(x => x.id === id || x.id === Number(id) || String(x.id) === String(id));
+    if (!o) return;
+    ensurePagos(o);
+    o.pagos[idx].file  = null;
+    o.pagos[idx].fecha = '';
+    saveOrders();
+    updateRow(id);
+    updateStats();
   }
 
   function previewFile(id, key) {
@@ -5772,6 +5886,22 @@
       label.textContent  = currentUser.name || currentUser.id;
       chip.style.display = 'flex';
       btn.style.display  = 'block';
+    }
+    // Limpiar filas hardcodeadas y renderizar desde localStorage inmediatamente
+    try {
+      const local = localStorage.getItem('b_'+(bimestreActivo||'def'));
+      if (local) {
+        orders = JSON.parse(local);
+        orders.forEach(migrateOrderPagos);
+        renderOrders();
+      } else {
+        // Sin datos locales: limpiar filas estáticas del HTML
+        const tb = document.getElementById('tableBody');
+        if (tb) tb.innerHTML = '';
+      }
+    } catch(e) {
+      const tb = document.getElementById('tableBody');
+      if (tb) tb.innerHTML = '';
     }
   }
 
