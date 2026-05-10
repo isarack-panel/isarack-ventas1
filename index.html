@@ -802,7 +802,7 @@
       <th>PESOS</th>
       <th>%</th>
       <th>COMISION</th>
-      <th class="th-sort" onclick="sortBy(&#39;fechaPago&#39;)" title="Ordenar por fecha">FECHA PAGO <span class="sort-icon" id="si-fechaPago">⇅</span></th>
+      <th title="Pagos P1/P2/P3">PAGOS</th>
       <th class="th-sort" onclick="sortBy(&#39;hoja&#39;)" title="Con/sin PDF">HOJA ENTREGA <span class="sort-icon" id="si-hoja">⇅</span></th>
       <th class="th-sort" onclick="sortBy(&#39;foto&#39;)" title="Con/sin imagen">EVIDENCIA <span class="sort-icon" id="si-foto">⇅</span></th>
       <th>PUB.</th>
@@ -5049,7 +5049,10 @@
     const tbody = document.getElementById('tableBody');
     const data = list || orders;
     tbody.innerHTML = '';
-    data.forEach(o => tbody.appendChild(buildRow(o)));
+    data.forEach(o => {
+      migrateOrderPagos(o); // asegurar migración antes de renderizar
+      tbody.appendChild(buildRow(o));
+    });
     updateStats();
   }
 
@@ -5874,55 +5877,37 @@
     const today = new Date();
     const fechaHoy = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
 
-    // ── Fuente 1: Banxico — TC DOF oficial (SF43718) ─────────────
-    // Serie SF43718 = "Tipo de cambio pesos por dólar E.U.A. para solventar obligaciones denominadas en moneda extranjera" (DOF)
+    // ── Fuente 1: ExchangeRate-API (gratuita, sin CORS) ──────────
     try {
-      const hoy  = fechaHoy;
-      const url  = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/${hoy}/${hoy}?token=fe8de18a13fb8e65d1f1d8bba38ba36c38c3bede3f2d4e0be40e04efcfe7ade6`;
-      const rb   = await fetch(url);
-      if (rb.ok) {
-        const db = await rb.json();
-        const datos = db?.bmx?.series?.[0]?.datos;
-        if (datos && datos.length > 0) {
-          const val = parseFloat(datos[datos.length - 1].dato);
-          if (!isNaN(val) && val > 5) {
-            tcDOF = val;
-            tcFechaStr = fechaHoy;
-            if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico DOF oficial'; }
-            if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-            updateStats();
-            return;
-          }
+      const r1 = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (r1.ok) {
+        const d1 = await r1.json();
+        if (d1.rates && d1.rates.MXN) {
+          tcDOF = d1.rates.MXN;
+          tcFechaStr = fechaHoy;
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API'; }
+          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+          updateStats();
+          return;
         }
       }
-    } catch(eb) { /* continuar */ }
+    } catch(e1) { /* continuar */ }
 
-    // ── Fuente 2: Banxico buscando los últimos 7 días (por si hoy no hay publicación) ──
+    // ── Fuente 2: FXRates alternativa ────────────────────────────
     try {
-      const d7 = new Date(today); d7.setDate(d7.getDate() - 7);
-      const from7 = d7.getFullYear()+'-'+String(d7.getMonth()+1).padStart(2,'0')+'-'+String(d7.getDate()).padStart(2,'0');
-      const url2 = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/${from7}/${fechaHoy}?token=fe8de18a13fb8e65d1f1d8bba38ba36c38c3bede3f2d4e0be40e04efcfe7ade6`;
-      const rb2  = await fetch(url2);
-      if (rb2.ok) {
-        const db2 = await rb2.json();
-        const datos2 = db2?.bmx?.series?.[0]?.datos;
-        if (datos2 && datos2.length > 0) {
-          // Tomar el más reciente
-          const ultimo = datos2.filter(d => d.dato !== 'N/E').pop();
-          if (ultimo) {
-            const val2 = parseFloat(ultimo.dato);
-            if (!isNaN(val2) && val2 > 5) {
-              tcDOF = val2;
-              tcFechaStr = ultimo.fecha;
-              if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: Banxico DOF oficial'; }
-              if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-              updateStats();
-              return;
-            }
-          }
+      const r2 = await fetch('https://api.fxratesapi.com/latest?currencies=MXN&base=USD');
+      if (r2.ok) {
+        const d2 = await r2.json();
+        if (d2.rates && d2.rates.MXN) {
+          tcDOF = d2.rates.MXN;
+          tcFechaStr = fechaHoy;
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: FXRates'; }
+          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+          updateStats();
+          return;
         }
       }
-    } catch(eb2) { /* continuar a fallback */ }
+    } catch(e2) { /* continuar a fallback */ }
 
     // ── Fallback offline ─────────────────────────────────────────
     tcDOF = 17.2400;
@@ -5948,18 +5933,24 @@
     let totalSFMXN = 0;   // sin factura (cuenta separada)
 
     orders.forEach(o => {
-      // Pagada = tiene al menos un pago subido Y la suma de % llega a 100
+      // Determinar si está pagada — soporta sistema nuevo (pagos[]) y sistema viejo (fechaPago)
       const pagos = o.pagos || [];
       const totalPagoPct = pagos.reduce((s, p) => s + (Number(p.pct) || 0), 0);
-      const tieneArchivo  = pagos.some(p => p.file || p.fecha) || !!(o.fechaPago);
-      const isPagado = tieneArchivo && totalPagoPct >= 100;
+      const tieneArchivo = pagos.some(p => p.file || p.fecha) || !!(o.fechaPago);
+
+      // Sistema nuevo: pagos[] con suma >= 100
+      // Sistema viejo (migración): tiene fechaPago o files.pago → contar como 100%
+      const isPagadoNuevo = tieneArchivo && totalPagoPct >= 100;
+      const isPagadoViejo = !!(o.fechaPago) && pagos.length === 0;
+      const isPagado = isPagadoNuevo || isPagadoViejo;
       if (!isPagado) return;
+
       const pct = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : o.pct;
-      // Cuando isPagado=true, el 100% ya está cubierto — comisión sobre monto completo
       let comMXN = 0;
-      if (o.dlls  > 0) comMXN += tc > 0 ? (o.dlls  * (pct/100)) * tc : 0;
-      if (o.pesos > 0) comMXN +=           o.pesos * (pct/100);
-      // Separar según si tiene o no factura
+      // USD: usar TC si disponible, si offline usar fallback 17.24
+      const tcUsado = (tc > 0) ? tc : 17.2400;
+      if (o.dlls  > 0) comMXN += o.dlls  * (pct/100) * tcUsado;
+      if (o.pesos > 0) comMXN += o.pesos * (pct/100);
       if (o.sinFactura) {
         totalSFMXN += comMXN;
       } else {
@@ -6515,6 +6506,8 @@
     updateBimestreBadge();
     updateEliminarBtn();
   }
+
+  function updateBimestreBadge() { /* eliminado visualmente, función mantenida para compatibilidad */ }
 
   function updateEliminarBtn() {
     const btn = document.getElementById('btnEliminarBim');
