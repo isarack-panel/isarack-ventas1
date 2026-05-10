@@ -779,7 +779,7 @@
     <button class="btn-bim btn-bim-del" id="btnEliminarBim" onclick="eliminarBimestre()" style="display:none;">🗑 Eliminar</button>
     <button class="btn-bim" onclick="document.getElementById(&#39;chartModal&#39;).classList.add(&#39;open&#39;);drawChart();">📊 Gráfica</button>
     <button class="btn-bim" onclick="openVentasAnuales()" style="background:#1a3a5c;">📈 Ventas Bimestrales</button>
-    <span id="bimestreBadge"></span>
+    
   </div>
   <div class="stat-item" style="margin-left:0;">
     <span class="stat-label">Estado</span>
@@ -6511,11 +6511,6 @@
     });
     updateBimestreBadge();
     updateEliminarBtn();
-  }
-
-  function updateBimestreBadge() {
-    const el = document.getElementById('bimestreBadge');
-    if (el) el.textContent = orders.length + ' orden' + (orders.length !== 1 ? 'es' : '');
   }
 
   function updateEliminarBtn() {
