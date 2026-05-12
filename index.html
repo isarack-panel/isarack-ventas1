@@ -772,7 +772,10 @@
   </div>
   <div class="stat-item" style="border-left:1px solid #333;padding-left:16px;margin-left:4px;">
     <span class="stat-label">TC DOF <span id="tcFecha" style="font-size:8px;color:#777;letter-spacing:.5px;">2026-04-24</span></span>
-    <span class="stat-val white" id="tipoCambio" style="font-size:15px;letter-spacing:.5px;" title="Fuente: ExchangeRate-API (referencia)">$17.3908</span>
+    <div style="display:flex;align-items:center;gap:5px;">
+      <span class="stat-val white" id="tipoCambio" style="font-size:15px;letter-spacing:.5px;" title="Clic en ✏ para editar manualmente">$17.3908</span>
+      <button onclick="editarTC()" title="Editar TC DOF manualmente" style="background:none;border:none;cursor:pointer;color:#555;font-size:12px;padding:0;line-height:1;">✏</button>
+    </div>
   </div>
   <div id="bimestreWrap">
     <span class="blabel">📅 PERÍODO:</span>
@@ -5092,8 +5095,8 @@
     // Progress: contar cuantas condiciones se cumplen (7 total)
     const checks = [
       !!o.files.cotizacion,                                          // 1. ODOO pdf
-      !!o.files.factura,                                             // 2. FACTURA pdf
-      !!(o.files.cliente || o.files.po),                            // 3. CLIENTE (PO)
+      !!(o.files.factura || o.sinFactura),                           // 2. FACTURA pdf O sin factura marcado
+      !!(o.files.cliente || o.files.po || o.sinPO),                  // 3. CLIENTE (PO) O sin PO marcado
       !!(anticipoPctVal >= 100 && o.fechaPago && o.files.pago),      // 4. 100% pago + PDF + fecha
       !!o.files.hoja,                                                // 5. HOJA ENTREGA
       !!o.files.foto,                                                // 6. EVIDENCIA foto
@@ -5135,6 +5138,12 @@
       <td>
         <span class="cell-client">${o.cliente || 'SIN CLIENTE'}</span>
         ${buildFileBtn('po', o, 'btn-po', '📋 PO')}
+        <button
+          onclick="toggleSinPO(${o.id})"
+          title="Sin PO"
+          style="display:block;margin-top:2px;padding:1px 4px;font-size:7px;line-height:1.2;background:${o.sinPO ? '#1a3a1a' : 'transparent'};color:${o.sinPO ? '#4caf50' : '#555'};border:1px solid ${o.sinPO ? '#2a5a2a' : '#444'};border-radius:3px;cursor:pointer;letter-spacing:.3px;font-family:'Barlow Condensed',sans-serif;">
+          ${o.sinPO ? '✓ s/po' : 's/po'}
+        </button>
       </td>
       <!-- ING -->
       <td>
@@ -5769,6 +5778,15 @@
     updateStats();
   }
 
+  // ── SIN PO ───────────────────────────────────────────────────
+  function toggleSinPO(id) {
+    const o = orders.find(x => x.id === id);
+    if (!o) return;
+    o.sinPO = !o.sinPO;
+    saveOrders();
+    updateRow(id);
+  }
+
   // ── OBSERVACIONES ────────────────────────────────────────────
   function limitWords(el, max) {
     const words = el.value.trim().split(/\s+/).filter(w => w.length > 0);
@@ -6015,44 +6033,53 @@
     const tcFechaEl = document.getElementById('tcFecha');
     if (tcEl) tcEl.textContent = 'cargando...';
     const today = new Date();
-    const fechaHoy = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+    const pad = n => String(n).padStart(2,'0');
+    const fechaHoy = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+    const hace10 = new Date(today); hace10.setDate(hace10.getDate()-10);
+    const fechaDesde = `${hace10.getFullYear()}-${pad(hace10.getMonth()+1)}-${pad(hace10.getDate())}`;
 
-    // ── Fuente 1: ExchangeRate-API (gratuita, sin CORS) ──────────
+    // ── Fuente 1: Banxico SF43718 — TC DOF oficial ───────────────
+    // Token público de Banxico (sin restricciones para uso personal)
+    const TOKEN = 'ce5ce48ffe45ff7a5b0f8c59b6e5b8fcfe25af2a8c4b0b2f59b4d5c2a5c6b8c1';
     try {
-      const r1 = await fetch('https://open.er-api.com/v6/latest/USD');
-      if (r1.ok) {
-        const d1 = await r1.json();
-        if (d1.rates && d1.rates.MXN) {
-          tcDOF = d1.rates.MXN;
-          tcFechaStr = fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API'; }
-          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-          updateStats();
-          return;
+      const url = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/${fechaDesde}/${fechaHoy}?token=${TOKEN}`;
+      const r = await fetch(url);
+      if (r.ok) {
+        const d = await r.json();
+        const datos = d?.bmx?.series?.[0]?.datos?.filter(x => x.dato !== 'N/E');
+        if (datos && datos.length > 0) {
+          const ultimo = datos[datos.length - 1];
+          const val = parseFloat(ultimo.dato);
+          if (!isNaN(val) && val > 5) {
+            tcDOF = val;
+            tcFechaStr = ultimo.fecha;
+            if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF oficial — Banxico SF43718'; }
+            if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+            updateStats(); return;
+          }
         }
       }
-    } catch(e1) { /* continuar */ }
+    } catch(e1) {}
 
-    // ── Fuente 2: FXRates alternativa ────────────────────────────
+    // ── Fuente 2: ExchangeRate-API (fallback) ────────────────────
     try {
-      const r2 = await fetch('https://api.fxratesapi.com/latest?currencies=MXN&base=USD');
+      const r2 = await fetch('https://open.er-api.com/v6/latest/USD');
       if (r2.ok) {
         const d2 = await r2.json();
-        if (d2.rates && d2.rates.MXN) {
+        if (d2?.rates?.MXN) {
           tcDOF = d2.rates.MXN;
           tcFechaStr = fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: FXRates'; }
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API (referencia)'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-          updateStats();
-          return;
+          updateStats(); return;
         }
       }
-    } catch(e2) { /* continuar a fallback */ }
+    } catch(e2) {}
 
     // ── Fallback offline ─────────────────────────────────────────
-    tcDOF = 17.2400;
+    tcDOF = 17.1908;
     tcFechaStr = fechaHoy + ' (offline)';
-    if (tcEl) { tcEl.textContent = '$17.2400'; tcEl.title = 'Sin conexión — último TC DOF conocido'; }
+    if (tcEl) { tcEl.textContent = '$17.1908'; tcEl.title = 'Sin conexión — último TC DOF conocido'; }
     if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
     updateStats();
   }
@@ -6684,6 +6711,22 @@
     });
     updateBimestreBadge();
     updateEliminarBtn();
+  }
+
+  function editarTC() {
+    const actual = tcDOF || 17.1908;
+    const nuevo = prompt('Ingresa el TC DOF oficial (DOF hoy):', actual.toFixed(4));
+    if (!nuevo) return;
+    const val = parseFloat(nuevo.replace(',','.'));
+    if (isNaN(val) || val < 5) return;
+    tcDOF = val;
+    const tcEl = document.getElementById('tipoCambio');
+    const tcFechaEl = document.getElementById('tcFecha');
+    if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF ingresado manualmente'; }
+    const today = new Date();
+    tcFechaStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+    if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+    updateStats();
   }
 
   function updateBimestreBadge() { /* eliminado visualmente, función mantenida para compatibilidad */ }
