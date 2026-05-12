@@ -827,10 +827,11 @@
       <td></td>
       <td></td><td></td><td></td><td></td>
       <td>
-        <select id="fFechaPago" onchange="applyFilters()">
-          <option value="">Todas</option>
-          <option value="con">Con fecha</option>
-          <option value="sin">Sin fecha</option>
+        <select id="fPagos" onchange="applyFilters()">
+          <option value="">Todos</option>
+          <option value="pagado">✓ 100%</option>
+          <option value="parcial">◷ Parcial</option>
+          <option value="sin">Sin pago</option>
         </select>
       </td>
       <td>
@@ -6169,6 +6170,7 @@
     const fCliente = (document.getElementById('fCliente')?.value || '').toLowerCase();
     const fFactura = document.getElementById('fFactura')?.value || '';
     const fFechaPago = document.getElementById('fFechaPago')?.value || '';
+    const fPagos    = document.getElementById('fPagos')?.value || '';
     const fHoja    = document.getElementById('fHoja')?.value || '';
     const fFoto    = document.getElementById('fFoto')?.value || '';
 
@@ -6186,9 +6188,17 @@
       // FACTURA filter
       if (fFactura === 'con' && !o.files.factura) return false;
       if (fFactura === 'sin' && o.files.factura) return false;
-      // FECHA PAGO filter
-      if (fFechaPago === 'con' && !o.fechaPago) return false;
-      if (fFechaPago === 'sin' && o.fechaPago) return false;
+      // PAGOS filter
+      if (fPagos) {
+        const pgs = o.pagos || [];
+        const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
+        const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
+        const pagado  = (tienArch && tot >= 100) || (!!(o.fechaPago) && pgs.length === 0);
+        const parcial = tienArch && tot > 0 && tot < 100;
+        if (fPagos === 'pagado'  && !pagado)           return false;
+        if (fPagos === 'parcial' && !parcial)           return false;
+        if (fPagos === 'sin'     && (pagado || parcial)) return false;
+      }
       // HOJA ENTREGA filter
       if (fHoja === 'con' && !o.files.hoja) return false;
       if (fHoja === 'sin' && o.files.hoja) return false;
