@@ -15,8 +15,8 @@
     --bg2: #222222;
     --bg3: #2a2a2a;
     --border: #333;
-    --orange: #6b6b6b;
-    --orange2: #888888;
+    --orange: #555;
+    --orange2: #666;
     --green: #00c853;
     --yellow: #c0392b;
     --red: #f44336;
@@ -87,7 +87,7 @@
   .fbtn:hover { border-color: var(--orange); color: var(--orange); }
   .fbtn.active-pag { border-color: var(--green); color: var(--green); }
   .fbtn.active-pen { border-color: var(--text2); color: var(--text2); }
-  .fbtn.fbtn-active { border-color: var(--orange); color: var(--orange); background: rgba(224,123,39,0.1); }
+  .fbtn.fbtn-active { border-color: var(--orange); color: var(--orange); background: rgba(255,255,255,0.07); }
   .btn-nueva {
     padding: 7px 18px; border-radius: 4px; border: none;
     background: var(--bg); color: #fff; cursor: pointer;
@@ -194,8 +194,8 @@
   }
   .pct-custom-wrap { display: flex; gap: 2px; align-items: center; }
   .pct-custom {
-    width: 50px; background: #111; border: 1px solid var(--orange);
-    color: var(--orange); font-size: 11px; padding: 2px 4px;
+    width: 50px; background: #111; border: 1px solid #555;
+    color: #fff; font-size: 11px; padding: 2px 4px;
     border-radius: 3px; outline: none; text-align: center;
     font-family: 'Barlow Condensed', sans-serif;
   }
@@ -347,7 +347,7 @@
   }
   .extract-field:last-child { border-bottom: none; }
   .extract-key { color: var(--text2); font-size: 11px; letter-spacing: .5px; }
-  .extract-val { color: var(--orange); font-weight: 600; font-family: 'Barlow Condensed', sans-serif; font-size: 13px; }
+  .extract-val { color: #fff; font-weight: 600; font-family: 'Barlow Condensed', sans-serif; font-size: 13px; }
   .loading-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--orange); border-radius: 50%; animation: spin .6s linear infinite; margin-right: 6px; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .file-drop-zone {
@@ -5174,20 +5174,19 @@
           const isPagado = totalPct >= 100;
           // Colores según estado global
           const rowBg     = isPagado ? 'rgba(30,80,30,0.18)' : 'transparent';
-          const badgeBg   = isPagado ? '#1a4a1a' : '#2a1a1a';
-          const badgeBc   = isPagado ? '#4caf50' : '#6b2020';
-          const badgeClr  = isPagado ? '#4caf50' : '#e05050';
+          const badgeBg   = isPagado ? '#1a4a1a' : '#2a2a2a';
+          const badgeBc   = isPagado ? '#4caf50' : '#444';
+          const badgeClr  = isPagado ? '#4caf50' : '#fff';
           const badgeTxt  = isPagado ? '✓ 100%' : ('◷ ' + totalPct + '%');
           return `<div style="display:flex;align-items:center;gap:4px;padding:3px 5px;border-radius:4px;background:${rowBg};border:1px solid ${isPagado?'rgba(76,175,80,0.15)':'transparent'};">
             ${[0,1,2].map(i => {
               const p = pagos[i] || {pct:0,fecha:'',file:null};
               const hasPago = !!(p.file || p.fecha);
-              // Verde brillante si tiene archivo, rojo apagado si no
-              const bg    = hasPago ? '#1a3d1a' : '#1e1212';
-              const bc    = hasPago ? '#4caf50' : '#5a2020';
-              const color = hasPago ? '#6ee86e' : '#7a3535';
-              const fcolor= hasPago ? '#4caf50' : '#5a2a2a';
-              const pcolor= hasPago ? '#5fd85f' : '#6a3030';
+              const bg    = hasPago ? '#1a3d1a' : '#222';
+              const bc    = hasPago ? '#4caf50' : '#444';
+              const color = hasPago ? '#6ee86e' : '#fff';
+              const fcolor= hasPago ? '#4caf50' : '#888';
+              const pcolor= hasPago ? '#5fd85f' : '#fff';
               const glow  = hasPago ? 'box-shadow:0 0 6px rgba(76,175,80,0.5);' : '';
               const fecha = p.fecha ? p.fecha.slice(5).replace('-','/') : '—';
               return '<div style="display:flex;flex-direction:column;align-items:center;gap:0px;">'
