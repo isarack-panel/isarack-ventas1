@@ -87,6 +87,7 @@
   .fbtn:hover { border-color: var(--orange); color: var(--orange); }
   .fbtn.active-pag { border-color: var(--green); color: var(--green); }
   .fbtn.active-pen { border-color: var(--text2); color: var(--text2); }
+  .fbtn.fbtn-active { border-color: var(--orange); color: var(--orange); background: rgba(224,123,39,0.1); }
   .btn-nueva {
     padding: 7px 18px; border-radius: 4px; border: none;
     background: var(--bg); color: #fff; cursor: pointer;
@@ -171,22 +172,22 @@
   .btn-cotizacion:hover { background: var(--orange2); }
   .btn-factura { background: #444; color: #fff; }
   .btn-factura:hover { background: #555; }
-  .btn-po { background: #555; color: #fff; }
-  .btn-po:hover { background: #666; }
-  .btn-pago { background: #c0392b; color: #fff; }
-  .btn-pago:hover { background: #e74c3c; }
-  .btn-hoja { background: #555; color: #fff; }
-  .btn-hoja:hover { background: #666; }
+  .btn-po { background: #444; color: #fff; }
+  .btn-po:hover { background: #555; }
+  .btn-pago { background: #444; color: #fff; }
+  .btn-pago:hover { background: #555; }
+  .btn-hoja { background: #444; color: #fff; }
+  .btn-hoja:hover { background: #555; }
   .btn-hoja-entregado { background: #27ae60 !important; color: #fff !important; }
   .btn-hoja-entregado:hover { background: #2ecc71 !important; }
-  .btn-foto { background: var(--orange); color: #fff; }
-  .btn-foto:hover { background: var(--orange2); }
+  .btn-foto { background: #444; color: #fff; }
+  .btn-foto:hover { background: #555; }
   .btn-uploaded { background: #27ae60; color: #fff; }
 
   /* PERCENTAGE SELECT */
   .pct-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
   .pct-sel {
-    background: #111; border: 1px solid var(--border); color: var(--text);
+    background: #111; border: 1px solid var(--border); color: #fff;
     font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700;
     padding: 3px 6px; border-radius: 3px; text-align: center; cursor: pointer;
     width: 70px;
@@ -740,8 +741,9 @@
   </div>
   <div class="filter-btns">
 
-    <button class="fbtn" onclick="filterStatus(&#39;pagado&#39;,this)">💰 PAGADO <span id="cntPag">5</span></button>
-    <button class="fbtn" onclick="filterStatus(&#39;pendientes&#39;,this)">📋 PENDIENTES <span id="cntPen">37</span></button>
+    <button class="fbtn" onclick="filterStatus('pagado',this)">💰 PAGADO <span id="cntPag">5</span></button>
+    <button class="fbtn" onclick="filterStatus('parcial',this)">⏳ PARCIAL <span id="cntPar">0</span></button>
+    <button class="fbtn" onclick="filterStatus('pendientes',this)">📋 PENDIENTES <span id="cntPen">37</span></button>
   </div>
   <button class="btn-nueva" onclick="openNewOrderModal()">+ NUEVA ORDEN</button>
 </div>
@@ -6113,13 +6115,28 @@
       ganSFEl.title = 'Comisiones de ventas SIN factura (cuenta separada) — TC DOF $' + (tc > 0 ? tc.toFixed(4) : 'N/A');
     }
 
-    // Contadores botones superiores
-    const pag = orders.filter(o => o.fechaPago && o.files && o.files.pago).length;
-    const pen = orders.filter(o => o.status === 'En Proceso').length;
+    // Contadores botones superiores — sistema nuevo de pagos
+    const isPagadoFn = o => {
+      const pgs = o.pagos || [];
+      const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
+      const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
+      return (tienArch && tot >= 100) || (!!(o.fechaPago) && pgs.length === 0);
+    };
+    const isParcialFn = o => {
+      const pgs = o.pagos || [];
+      const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
+      const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
+      return tienArch && tot > 0 && tot < 100;
+    };
+    const pag     = orders.filter(isPagadoFn).length;
+    const parcial = orders.filter(isParcialFn).length;
+    const pen     = orders.filter(o => !isPagadoFn(o) && !isParcialFn(o)).length;
     const pagEl = document.getElementById('cntPag');
     const penEl = document.getElementById('cntPen');
+    const parEl = document.getElementById('cntPar');
     if (pagEl) pagEl.textContent = pag;
     if (penEl) penEl.textContent = pen;
+    if (parEl) parEl.textContent = parcial;
   }
 
   // ── FILTER ───────────────────────────────────────────────────
@@ -6242,11 +6259,26 @@
 
   function filterStatus(type, btn) {
     filterActive = filterActive === type ? null : type;
+    // Resaltar botón activo
+    document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('fbtn-active'));
+    if (btn && filterActive) btn.classList.add('fbtn-active');
     if (!filterActive) { applyFilters(); return; }
-    // Pre-apply quick filter then run applyFilters on top
+    const isPagadoFn = o => {
+      const pgs = o.pagos || [];
+      const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
+      const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
+      return (tienArch && tot >= 100) || (!!(o.fechaPago) && pgs.length === 0);
+    };
+    const isParcialFn = o => {
+      const pgs = o.pagos || [];
+      const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
+      const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
+      return tienArch && tot > 0 && tot < 100;
+    };
     let filtered;
-    if (type === 'pagado')  filtered = orders.filter(o => o.fechaPago && o.files.pago);
-    else if (type === 'pendientes') filtered = orders.filter(o => o.status === 'En Proceso');
+    if      (type === 'pagado')     filtered = orders.filter(isPagadoFn);
+    else if (type === 'parcial')    filtered = orders.filter(isParcialFn);
+    else if (type === 'pendientes') filtered = orders.filter(o => !isPagadoFn(o) && !isParcialFn(o));
     renderOrders(filtered);
   }
 
