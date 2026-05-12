@@ -5170,28 +5170,36 @@
           const pagos = o.pagos || [{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null}];
           const totalPct = pagos.reduce((s,p) => s + (Number(p.pct)||0), 0);
           const isPagado = totalPct >= 100;
-          return `<div style="display:flex;align-items:center;gap:3px;">
+          // Colores según estado global
+          const rowBg     = isPagado ? 'rgba(30,80,30,0.18)' : 'transparent';
+          const badgeBg   = isPagado ? '#1a4a1a' : '#2a1a1a';
+          const badgeBc   = isPagado ? '#4caf50' : '#6b2020';
+          const badgeClr  = isPagado ? '#4caf50' : '#e05050';
+          const badgeTxt  = isPagado ? '✓ 100%' : ('◷ ' + totalPct + '%');
+          return `<div style="display:flex;align-items:center;gap:4px;padding:3px 5px;border-radius:4px;background:${rowBg};border:1px solid ${isPagado?'rgba(76,175,80,0.15)':'transparent'};">
             ${[0,1,2].map(i => {
               const p = pagos[i] || {pct:0,fecha:'',file:null};
               const hasPago = !!(p.file || p.fecha);
-              const bg    = hasPago ? '#152015' : '#555';
-              const bc    = hasPago ? '#2a4a2a' : '#666';
-              const color = hasPago ? '#4caf50' : '#ccc';
-              const fcolor= hasPago ? '#3a6a3a' : '#999';
-              const pcolor= hasPago ? '#3a6a3a' : '#aaa';
+              // Verde brillante si tiene archivo, rojo apagado si no
+              const bg    = hasPago ? '#1a3d1a' : '#1e1212';
+              const bc    = hasPago ? '#4caf50' : '#5a2020';
+              const color = hasPago ? '#6ee86e' : '#7a3535';
+              const fcolor= hasPago ? '#4caf50' : '#5a2a2a';
+              const pcolor= hasPago ? '#5fd85f' : '#6a3030';
+              const glow  = hasPago ? 'box-shadow:0 0 6px rgba(76,175,80,0.5);' : '';
               const fecha = p.fecha ? p.fecha.slice(5).replace('-','/') : '—';
               return '<div style="display:flex;flex-direction:column;align-items:center;gap:0px;">'
-                + '<div onclick="openPagoFileMenu('+o.id+','+i+',this)" title="Pago '+(i+1)+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:30px;height:30px;border-radius:3px;border:1px solid '+bc+';background:'+bg+';cursor:pointer;gap:0;">'
+                + '<div onclick="openPagoFileMenu('+o.id+','+i+',this)" title="Pago '+(i+1)+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:30px;height:30px;border-radius:3px;border:1px solid '+bc+';background:'+bg+';cursor:pointer;gap:0;'+glow+'">'
                 + '<span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;color:'+color+';">P'+(i+1)+'</span>'
                 + (p.pct ? '<span style="font-family:Barlow Condensed,sans-serif;font-size:8px;color:'+pcolor+';">'+p.pct+'%</span>' : '')
                 + '<span style="font-family:Barlow Condensed,sans-serif;font-size:7px;color:'+fcolor+';">'+fecha+'</span>'
                 + '</div>'
                 + '<input type="number" min="0" max="100" step="1" placeholder="%" value="'+(p.pct||'')+'"'
                 + ' onchange="updatePagoPct('+o.id+','+i+',this.value)"'
-                + ' style="width:30px;margin-top:1px;background:#444;border:1px solid #555;color:#ddd;font-size:8px;font-family:Barlow Condensed,sans-serif;text-align:center;padding:1px 0;border-radius:2px;" />'
+                + ' style="width:30px;margin-top:1px;background:#333;border:1px solid '+bc+';color:#ddd;font-size:8px;font-family:Barlow Condensed,sans-serif;text-align:center;padding:1px 0;border-radius:2px;" />'
                 + '</div>';
             }).join('')}
-            <span style="font-family:Barlow Condensed,sans-serif;font-size:10px;margin-left:5px;color:${isPagado?'#4caf50':'#3a3a2a'};">${isPagado?'✓':'◷'} ${totalPct}%</span>
+            <span style="font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:700;margin-left:4px;padding:2px 6px;border-radius:3px;background:${badgeBg};border:1px solid ${badgeBc};color:${badgeClr};letter-spacing:.5px;">${badgeTxt}</span>
           </div>`;
         })()}
       </td>
