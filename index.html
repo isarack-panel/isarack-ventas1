@@ -5181,17 +5181,17 @@
               const pcolor= hasPago ? '#3a6a3a' : '#aaa';
               const fecha = p.fecha ? p.fecha.slice(5).replace('-','/') : '—';
               return '<div style="display:flex;flex-direction:column;align-items:center;gap:0px;">'
-                + '<div onclick="openPagoFileMenu('+o.id+','+i+',this)" title="Pago '+(i+1)+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:22px;height:22px;border-radius:2px;border:1px solid '+bc+';background:'+bg+';cursor:pointer;gap:0;">'
-                + '<span style="font-family:Barlow Condensed,sans-serif;font-size:7px;font-weight:700;color:'+color+';">P'+(i+1)+'</span>'
-                + (p.pct ? '<span style="font-family:Barlow Condensed,sans-serif;font-size:6px;color:'+pcolor+';">'+p.pct+'%</span>' : '')
-                + '<span style="font-family:Barlow Condensed,sans-serif;font-size:5px;color:'+fcolor+';">'+fecha+'</span>'
+                + '<div onclick="openPagoFileMenu('+o.id+','+i+',this)" title="Pago '+(i+1)+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:30px;height:30px;border-radius:3px;border:1px solid '+bc+';background:'+bg+';cursor:pointer;gap:0;">'
+                + '<span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;color:'+color+';">P'+(i+1)+'</span>'
+                + (p.pct ? '<span style="font-family:Barlow Condensed,sans-serif;font-size:8px;color:'+pcolor+';">'+p.pct+'%</span>' : '')
+                + '<span style="font-family:Barlow Condensed,sans-serif;font-size:7px;color:'+fcolor+';">'+fecha+'</span>'
                 + '</div>'
                 + '<input type="number" min="0" max="100" step="1" placeholder="%" value="'+(p.pct||'')+'"'
                 + ' onchange="updatePagoPct('+o.id+','+i+',this.value)"'
-                + ' style="width:22px;margin-top:1px;background:#444;border:1px solid #555;color:#ddd;font-size:7px;font-family:Barlow Condensed,sans-serif;text-align:center;padding:1px 0;border-radius:2px;" />'
+                + ' style="width:30px;margin-top:1px;background:#444;border:1px solid #555;color:#ddd;font-size:8px;font-family:Barlow Condensed,sans-serif;text-align:center;padding:1px 0;border-radius:2px;" />'
                 + '</div>';
             }).join('')}
-            <span style="font-family:Barlow Condensed,sans-serif;font-size:7px;margin-left:3px;color:${isPagado?'#4caf50':'#3a3a2a'};">${isPagado?'✓':'◷'} ${totalPct}%</span>
+            <span style="font-family:Barlow Condensed,sans-serif;font-size:10px;margin-left:5px;color:${isPagado?'#4caf50':'#3a3a2a'};">${isPagado?'✓':'◷'} ${totalPct}%</span>
           </div>`;
         })()}
       </td>
