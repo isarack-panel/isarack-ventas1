@@ -5816,9 +5816,14 @@
     updateStats();
   }
 
-  // ── TIPO DE CAMBIO DOF (Banxico SF43718) ─────────────────────
-  let tcDOF = null;      // valor actual del TC
-  let tcFechaStr = '';   // fecha del TC
+  // ── TIPO DE CAMBIO DOF ───────────────────────────────────────
+  // Cargar inmediatamente del caché para no mostrar "sin TC"
+  let tcDOF = 17.2520;
+  let tcFechaStr = '';
+  try {
+    const cached = JSON.parse(localStorage.getItem('tcDOF_manual'));
+    if (cached && cached.val > 5) { tcDOF = cached.val; tcFechaStr = cached.fecha; }
+  } catch(e) {}
 
 
   // ═══════════════════════════════════════════
@@ -6038,65 +6043,64 @@
     const hace10 = new Date(today); hace10.setDate(hace10.getDate()-10);
     const fechaDesde = `${hace10.getFullYear()}-${pad(hace10.getMonth()+1)}-${pad(hace10.getDate())}`;
 
-    // ── Fuente 1: DOF oficial via proxy (sin CORS) ───────────────
+    // ── Fuente 1: Banxico SF43718 — TC DOF oficial ───────────────
+    const TOKEN = 'dad63931f69f3192e813f16291b859d66bab26ed2245ee3bf375a9def048cd2c';
     try {
-      const dofUrl = 'https://www.dof.gob.mx/indicadores_detalle.php?cod_tipo_indicador=158';
-      const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(dofUrl);
-      const r1 = await fetch(proxy);
-      if (r1.ok) {
-        const d1 = await r1.json();
-        const html = d1.contents || '';
-        // Buscar el valor en la tabla: formato DD-MM-YYYY + valor
-        const match = html.match(/(\d{2}-\d{2}-\d{4})\s*<\/td>\s*<td[^>]*>\s*(1[5-9]\.\d{4})/);
-        if (match) {
-          const val = parseFloat(match[2]);
+      const url = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/${fechaDesde}/${fechaHoy}?token=${TOKEN}`;
+      const r = await fetch(url);
+      if (r.ok) {
+        const d = await r.json();
+        const datos = d?.bmx?.series?.[0]?.datos?.filter(x => x.dato !== 'N/E');
+        if (datos && datos.length > 0) {
+          const ultimo = datos[datos.length - 1];
+          const val = parseFloat(ultimo.dato);
           if (!isNaN(val) && val > 5) {
             tcDOF = val;
-            // Convertir fecha DD-MM-YYYY a YYYY-MM-DD
-            const partes = match[1].split('-');
-            tcFechaStr = `${partes[2]}-${partes[1]}-${partes[0]}`;
-            if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF oficial — dof.gob.mx'; }
-            if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-            // Guardar en localStorage
+            tcFechaStr = ultimo.fecha;
             localStorage.setItem('tcDOF_manual', JSON.stringify({ val: tcDOF, fecha: tcFechaStr }));
+            if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF oficial — Banxico SF43718'; }
+            if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
             updateStats(); return;
           }
         }
       }
-    } catch(e1) {}
+    } catch(e0) {}
 
     // ── Fuente 2: ExchangeRate-API ───────────────────────────────
     try {
-      const r2 = await fetch('https://open.er-api.com/v6/latest/USD');
+      const r1 = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (r1.ok) {
+        const d1 = await r1.json();
+        if (d1?.rates?.MXN) {
+          tcDOF = d1.rates.MXN;
+          tcFechaStr = fechaHoy;
+          localStorage.setItem('tcDOF_manual', JSON.stringify({ val: tcDOF, fecha: tcFechaStr }));
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API'; }
+          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+          updateStats(); return;
+        }
+      }
+    } catch(e1) {}
+
+    // ── Fuente 2: FXRates ────────────────────────────────────────
+    try {
+      const r2 = await fetch('https://api.fxratesapi.com/latest?currencies=MXN&base=USD');
       if (r2.ok) {
         const d2 = await r2.json();
         if (d2?.rates?.MXN) {
           tcDOF = d2.rates.MXN;
           tcFechaStr = fechaHoy;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API'; }
+          localStorage.setItem('tcDOF_manual', JSON.stringify({ val: tcDOF, fecha: tcFechaStr }));
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: FXRates'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats(); return;
         }
       }
     } catch(e2) {}
 
-    // ── Fuente 3: localStorage (último guardado) ─────────────────
-    try {
-      const saved = JSON.parse(localStorage.getItem('tcDOF_manual'));
-      if (saved && saved.val > 5) {
-        tcDOF = saved.val;
-        tcFechaStr = saved.fecha + ' (caché)';
-        if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF guardado localmente'; }
-        if (tcFechaEl) tcFechaEl.textContent = saved.fecha;
-        updateStats(); return;
-      }
-    } catch(e3) {}
-
-    // ── Fallback offline ─────────────────────────────────────────
-    tcDOF = 17.2520;
-    tcFechaStr = fechaHoy + ' (offline)';
-    if (tcEl) { tcEl.textContent = '$17.2520'; tcEl.title = 'Sin conexión — último TC DOF conocido'; }
-    if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+    // ── Fallback: usar lo que ya hay en tcDOF (cargado al inicio) ─
+    if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC cargado de caché'; }
+    if (tcFechaEl) tcFechaEl.textContent = tcFechaStr || fechaHoy;
     updateStats();
   }
 
