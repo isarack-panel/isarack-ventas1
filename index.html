@@ -6533,6 +6533,11 @@
           if (!d.pct) d.pct = 2.20;
           if (!d.status) d.status = 'En Proceso';
           if (!d.pub) d.pub = 'No Publicado';
+          // Convertir pagos de objeto a array si es necesario (Firestore convierte arrays a objetos)
+          if (d.pagos && !Array.isArray(d.pagos)) {
+            d.pagos = Object.values(d.pagos);
+          }
+          if (!d.pagos) d.pagos = [{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null}];
           // Migrar pagos del sistema viejo si aplica
           if (localO) {
             d.pagos = localO.pagos || d.pagos;
