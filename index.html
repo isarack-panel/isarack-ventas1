@@ -5819,7 +5819,7 @@
 
   // ── TIPO DE CAMBIO DOF ───────────────────────────────────────
   // Cargar inmediatamente del caché para no mostrar "sin TC"
-  let tcDOF = 17.2520;
+  let tcDOF = 17.1878;
   let tcFechaStr = '';
   try {
     const cached = JSON.parse(localStorage.getItem('tcDOF_manual'));
@@ -6060,9 +6060,9 @@
       }
     } catch(e00) {}
 
-    // ── Fuente 1: Banxico SF43718 via proxy CORS ─────────────────
+    // ── Fuente 1: Banxico SF60653 via proxy CORS ─────────────────
     const TOKEN = 'dad63931f69f3192e813f16291b859d66bab26ed2245ee3bf375a9def048cd2c';
-    const banxicoUrl = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/${fechaDesde}/${fechaHoy}?token=${TOKEN}`;
+    const banxicoUrl = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF60653/datos/${fechaDesde}/${fechaHoy}?token=${TOKEN}`;
     const proxies = [
       `https://corsproxy.io/?${encodeURIComponent(banxicoUrl)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(banxicoUrl)}`,
