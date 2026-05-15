@@ -7,6 +7,7 @@ module.exports = async function handler(req, res) {
   const ayer = new Date(today); ayer.setDate(ayer.getDate() - 1);
   const pad = n => String(n).padStart(2, '0');
   const fechaAyer = `${ayer.getFullYear()}-${pad(ayer.getMonth()+1)}-${pad(ayer.getDate())}`;
+  const fechaAyerBmx = `${pad(ayer.getDate())}/${pad(ayer.getMonth()+1)}/${ayer.getFullYear()}`;
   const hace10 = new Date(today); hace10.setDate(hace10.getDate() - 10);
   const fechaDesde = `${hace10.getFullYear()}-${pad(hace10.getMonth()+1)}-${pad(hace10.getDate())}`;
   const path = `/SieAPIRest/service/v1/series/SF43718/datos/${fechaDesde}/${fechaAyer}?token=${TOKEN}`;
@@ -20,7 +21,8 @@ module.exports = async function handler(req, res) {
           const d = JSON.parse(data);
           const datos = d?.bmx?.series?.[0]?.datos?.filter(x => x.dato !== 'N/E');
           if (datos && datos.length > 0) {
-            const ultimo = datos[datos.length - 1];
+            const exacto = datos.find(x => x.fecha === fechaAyerBmx);
+            const ultimo = exacto || datos[datos.length - 1];
             const val = parseFloat(ultimo.dato);
             if (!isNaN(val) && val > 5) {
               res.status(200).json({ val, fecha: ultimo.fecha });
