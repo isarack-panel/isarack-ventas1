@@ -1,3 +1,5 @@
+const https = require('https');
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const TOKEN = 'dad63931f69f3192e813f16291b859d66bab26ed2245ee3bf375a9def048cd2c';
@@ -6,12 +8,31 @@ export default async function handler(req, res) {
   const fechaHoy = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
   const hace10 = new Date(today); hace10.setDate(hace10.getDate() - 10);
   const fechaDesde = `${hace10.getFullYear()}-${pad(hace10.getMonth()+1)}-${pad(hace10.getDate())}`;
-  try {
-    const url = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/${fechaDesde}/${fechaHoy}?token=${TOKEN}`;
-    const r = await fetch(url);
-    const d = await r.json();
-    const datos = d?.bmx?.series?.[0]?.datos?.filter(x => x.dato !== 'N/E');
-    if (datos && datos.length > 0) {
-      const ultimo = datos[datos.length - 1];
-      const val = parseFloat(ultimo.dato);
-      if (!isNaN(v
+
+  const path = `/SieAPIRest/service/v1/series/SF43718/datos/${fechaDesde}/${fechaHoy}?token=${TOKEN}`;
+
+  return new Promise((resolve) => {
+    https.get({ hostname: 'www.banxico.org.mx', path, headers: { 'Bmx-Token': TOKEN } }, (r) => {
+      let data = '';
+      r.on('data', chunk => data += chunk);
+      r.on('end', () => {
+        try {
+          const d = JSON.parse(data);
+          const datos = d?.bmx?.series?.[0]?.datos?.filter(x => x.dato !== 'N/E');
+          if (datos && datos.length > 0) {
+            const ultimo = datos[datos.length - 1];
+            const val = parseFloat(ultimo.dato);
+            if (!isNaN(val) && val > 5) {
+              res.status(200).json({ val, fecha: ultimo.fecha });
+              return resolve();
+            }
+          }
+          res.status(500).json({ error: 'No data' });
+          resolve();
+        } catch(e) {
+          res.status(500).json({ error: e.message });
+          resolve();
+        }
+      });
+    }).on('error', (e) => {
+      res.status(500).json({ error: e.
