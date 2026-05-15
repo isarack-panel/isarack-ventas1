@@ -1,6 +1,6 @@
 const https = require('https');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const TOKEN = 'dad63931f69f3192e813f16291b859d66bab26ed2245ee3bf375a9def048cd2c';
   const today = new Date();
@@ -8,7 +8,6 @@ export default async function handler(req, res) {
   const fechaHoy = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
   const hace10 = new Date(today); hace10.setDate(hace10.getDate() - 10);
   const fechaDesde = `${hace10.getFullYear()}-${pad(hace10.getMonth()+1)}-${pad(hace10.getDate())}`;
-
   const path = `/SieAPIRest/service/v1/series/SF43718/datos/${fechaDesde}/${fechaHoy}?token=${TOKEN}`;
 
   return new Promise((resolve) => {
@@ -35,4 +34,8 @@ export default async function handler(req, res) {
         }
       });
     }).on('error', (e) => {
-      res.status(500).json({ error: e.
+      res.status(500).json({ error: e.message });
+      resolve();
+    });
+  });
+};
