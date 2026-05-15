@@ -6055,14 +6055,11 @@
   async function fetchTipoCambio() {
     const tcEl = document.getElementById('tipoCambio');
     const tcFechaEl = document.getElementById('tcFecha');
-    if (tcEl) tcEl.textContent = 'cargando...';
     const today = new Date();
     const pad = n => String(n).padStart(2,'0');
     const fechaHoy = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
-    const hace10 = new Date(today); hace10.setDate(hace10.getDate()-10);
-    const fechaDesde = `${hace10.getFullYear()}-${pad(hace10.getMonth()+1)}-${pad(hace10.getDate())}`;
 
-    // ── Fuente 0: Vercel API (server-side Banxico, exacto) ───────
+    // ── Fuente única: /api/tc (DOF oficial via Vercel) ────────────
     try {
       const r0 = await fetch('/api/tc');
       if (r0.ok) {
@@ -6070,92 +6067,27 @@
         if (d0?.val > 5) {
           tcDOF = d0.val;
           tcFechaStr = d0.fecha;
-          localStorage.setItem('tcDOF_manual', JSON.stringify({ val: tcDOF, fecha: tcFechaStr }));
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF oficial — Banxico'; }
+          localStorage.setItem('tcDOF_manual', JSON.stringify({ val: tcDOF, fecha: fechaHoy }));
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF oficial'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats(); return;
         }
       }
-    } catch(e00) {}
+    } catch(e) {}
 
-    // ── Fuente 1: Banxico SF60653 via proxy CORS ─────────────────
-    const TOKEN = 'dad63931f69f3192e813f16291b859d66bab26ed2245ee3bf375a9def048cd2c';
-    const banxicoUrl = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF60653/datos/${fechaDesde}/${fechaHoy}?token=${TOKEN}`;
-    const proxies = [
-      `https://corsproxy.io/?${encodeURIComponent(banxicoUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(banxicoUrl)}`,
-      banxicoUrl  // intento directo por si acaso
-    ];
-    for (const url of proxies) {
-      try {
-        const r = await fetch(url);
-        if (r.ok) {
-          const text = await r.text();
-          const d = JSON.parse(text);
-          const datos = d?.bmx?.series?.[0]?.datos?.filter(x => x.dato !== 'N/E');
-          if (datos && datos.length > 0) {
-            const ultimo = datos[datos.length - 1];
-            const val = parseFloat(ultimo.dato);
-            if (!isNaN(val) && val > 5) {
-              tcDOF = val;
-              tcFechaStr = ultimo.fecha;
-              localStorage.setItem('tcDOF_manual', JSON.stringify({ val: tcDOF, fecha: tcFechaStr }));
-              if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF oficial — Banxico'; }
-              if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-              updateStats(); return;
-            }
-          }
-        }
-      } catch(e) {}
-    }
-
-    // ── Si Banxico falló, usar caché del localStorage antes de API externa ──
+    // ── Fallback: caché local (no usar APIs externas que dan valor incorrecto) ──
     try {
       const saved = JSON.parse(localStorage.getItem('tcDOF_manual'));
       if (saved && saved.val > 5) {
         tcDOF = saved.val;
-        tcFechaStr = saved.fecha;
         if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF — caché local'; }
-        if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
+        if (tcFechaEl && saved.fecha) tcFechaEl.textContent = saved.fecha;
         updateStats(); return;
       }
     } catch(ec) {}
 
-    // ── Fuente 2: ExchangeRate-API (último recurso) ───────────────
-    try {
-      const r1 = await fetch('https://open.er-api.com/v6/latest/USD');
-      if (r1.ok) {
-        const d1 = await r1.json();
-        if (d1?.rates?.MXN) {
-          tcDOF = d1.rates.MXN;
-          tcFechaStr = fechaHoy;
-          localStorage.setItem('tcDOF_manual', JSON.stringify({ val: tcDOF, fecha: tcFechaStr }));
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: ExchangeRate-API'; }
-          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-          updateStats(); return;
-        }
-      }
-    } catch(e1) {}
-
-    // ── Fuente 2: FXRates ────────────────────────────────────────
-    try {
-      const r2 = await fetch('https://api.fxratesapi.com/latest?currencies=MXN&base=USD');
-      if (r2.ok) {
-        const d2 = await r2.json();
-        if (d2?.rates?.MXN) {
-          tcDOF = d2.rates.MXN;
-          tcFechaStr = fechaHoy;
-          localStorage.setItem('tcDOF_manual', JSON.stringify({ val: tcDOF, fecha: tcFechaStr }));
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'Fuente: FXRates'; }
-          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-          updateStats(); return;
-        }
-      }
-    } catch(e2) {}
-
-    // ── Fallback: usar lo que ya hay en tcDOF (cargado al inicio) ─
-    if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC cargado de caché'; }
-    if (tcFechaEl) tcFechaEl.textContent = tcFechaStr || fechaHoy;
+    // ── Sin datos: usar fallback hardcoded ───────────────────────
+    if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF — valor anterior'; }
     updateStats();
   }
 
