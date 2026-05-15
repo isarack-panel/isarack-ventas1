@@ -5825,12 +5825,23 @@
   }
 
   // ── TIPO DE CAMBIO DOF ───────────────────────────────────────
-  // Cargar inmediatamente del caché para no mostrar "sin TC"
+  // Cargar TC — siempre jalar de /api/tc primero, caché solo como respaldo
   let tcDOF = 17.1878;
   let tcFechaStr = '';
+  // Limpiar caché viejo para forzar fetch fresco
   try {
+    const today = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const fechaHoy = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
     const cached = JSON.parse(localStorage.getItem('tcDOF_manual'));
-    if (cached && cached.val > 5) { tcDOF = cached.val; tcFechaStr = cached.fecha; }
+    // Solo usar caché si es de hoy
+    if (cached && cached.val > 5 && cached.fecha === fechaHoy) {
+      tcDOF = cached.val;
+      tcFechaStr = cached.fecha;
+    } else {
+      // Caché viejo — eliminarlo para forzar fetch fresco
+      localStorage.removeItem('tcDOF_manual');
+    }
   } catch(e) {}
 
 
