@@ -5693,11 +5693,24 @@
   // ── SISTEMA DE PAGOS (P1 / P2 / P3) ─────────────────────────
   // ── MIGRACIÓN datos anteriores ──────────────────────────────
   // Órdenes con fechaPago + files.pago (sistema viejo) → migrar a pagos[0] con 100%
+  // Normalizar pagos — Firestore convierte arrays a objetos {0:{},1:{},2:{}}
+  function normalizePagos(o) {
+    if (!o) return;
+    if (!o.pagos) {
+      o.pagos = [{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null}];
+      return;
+    }
+    if (!Array.isArray(o.pagos)) {
+      o.pagos = [0,1,2].map(i => o.pagos[i] || {pct:0,fecha:'',file:null});
+    }
+    while (o.pagos.length < 3) o.pagos.push({pct:0,fecha:'',file:null});
+  }
+
   function migrateOrderPagos(o) {
-    if (o.pagos && o.pagos.some(p => p.fecha || p.file || Number(p.pct) > 0)) return; // ya migrado
+    normalizePagos(o);
+    if (o.pagos.some(p => p.fecha || p.file || Number(p.pct) > 0)) return;
     const tienePago = o.fechaPago || (o.files && o.files.pago);
     if (tienePago) {
-      // anticipoPct por defecto 100 — si era 100 o no estaba definido, migrar como pago completo
       const pct = (o.anticipoPct !== undefined && o.anticipoPct !== null) ? Number(o.anticipoPct) : 100;
       const pagoFile = (o.files && o.files.pago) ? o.files.pago : null;
       o.pagos = [
@@ -5709,13 +5722,7 @@
   }
 
   function ensurePagos(o) {
-    if (!o.pagos || !Array.isArray(o.pagos) || o.pagos.length < 3) {
-      o.pagos = [
-        o.pagos?.[0] || { pct: 0, fecha: '', file: null },
-        o.pagos?.[1] || { pct: 0, fecha: '', file: null },
-        o.pagos?.[2] || { pct: 0, fecha: '', file: null }
-      ];
-    }
+    normalizePagos(o);
   }
 
   function updatePagoPct(id, idx, val) {
