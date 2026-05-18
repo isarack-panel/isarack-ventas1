@@ -5825,24 +5825,10 @@
   }
 
   // ── TIPO DE CAMBIO DOF ───────────────────────────────────────
-  // Cargar TC — siempre jalar de /api/tc primero, caché solo como respaldo
-  let tcDOF = 17.1878;
+  // TC DOF — siempre jalar de /api/tc, nunca usar caché viejo
+  let tcDOF = 17.3477;
   let tcFechaStr = '';
-  // Limpiar caché viejo para forzar fetch fresco
-  try {
-    const today = new Date();
-    const pad = n => String(n).padStart(2,'0');
-    const fechaHoy = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
-    const cached = JSON.parse(localStorage.getItem('tcDOF_manual'));
-    // Solo usar caché si es de hoy
-    if (cached && cached.val > 5 && cached.fecha === fechaHoy) {
-      tcDOF = cached.val;
-      tcFechaStr = cached.fecha;
-    } else {
-      // Caché viejo — eliminarlo para forzar fetch fresco
-      localStorage.removeItem('tcDOF_manual');
-    }
-  } catch(e) {}
+  localStorage.removeItem('tcDOF_manual'); // limpiar caché viejo
 
 
   // ═══════════════════════════════════════════
@@ -6055,9 +6041,6 @@
   async function fetchTipoCambio() {
     const tcEl = document.getElementById('tipoCambio');
     const tcFechaEl = document.getElementById('tcFecha');
-    const today = new Date();
-    const pad = n => String(n).padStart(2,'0');
-    const fechaHoy = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
 
     // ── Fuente única: /api/tc (DOF oficial via Vercel) ────────────
     try {
@@ -6067,27 +6050,15 @@
         if (d0?.val > 5) {
           tcDOF = d0.val;
           tcFechaStr = d0.fecha;
-          localStorage.setItem('tcDOF_manual', JSON.stringify({ val: tcDOF, fecha: fechaHoy }));
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF oficial'; }
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF oficial — Banxico'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats(); return;
         }
       }
     } catch(e) {}
 
-    // ── Fallback: caché local (no usar APIs externas que dan valor incorrecto) ──
-    try {
-      const saved = JSON.parse(localStorage.getItem('tcDOF_manual'));
-      if (saved && saved.val > 5) {
-        tcDOF = saved.val;
-        if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF — caché local'; }
-        if (tcFechaEl && saved.fecha) tcFechaEl.textContent = saved.fecha;
-        updateStats(); return;
-      }
-    } catch(ec) {}
-
-    // ── Sin datos: usar fallback hardcoded ───────────────────────
-    if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF — valor anterior'; }
+    // ── Si /api/tc falla: mostrar el último valor conocido sin cambiar nada ──
+    if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF — último valor conocido'; }
     updateStats();
   }
 
@@ -6751,41 +6722,7 @@
 
   // Cargar TC guardado manualmente si existe y es de hoy
   function loadTCManual() {
-    const today = new Date();
-    const fechaHoy = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-    // Intentar cargar de Firebase primero
-    if (window.db && firebaseReady) {
-      window.db.ref('config/tcDOF').once('value').then(snap => {
-        const data = snap.val();
-        if (data && data.val > 5) {
-          tcDOF = data.val;
-          tcFechaStr = data.fecha;
-          const tcEl = document.getElementById('tipoCambio');
-          const tcFechaEl = document.getElementById('tcFecha');
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF ingresado manualmente — ' + tcFechaStr; }
-          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-          updateStats();
-          return;
-        }
-        // Si no hay en Firebase, intentar API
-        fetchTipoCambio();
-      }).catch(() => fetchTipoCambio());
-      return;
-    }
-    // Sin Firebase: intentar localStorage
-    try {
-      const saved = JSON.parse(localStorage.getItem('tcDOF_manual'));
-      if (saved && saved.val > 5) {
-        tcDOF = saved.val;
-        tcFechaStr = saved.fecha;
-        const tcEl = document.getElementById('tipoCambio');
-        const tcFechaEl = document.getElementById('tcFecha');
-        if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF guardado — ' + tcFechaStr; }
-        if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-        updateStats();
-        return;
-      }
-    } catch(e) {}
+    // Siempre jalar de /api/tc — nunca usar caché viejo
     fetchTipoCambio();
   }
 
