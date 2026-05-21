@@ -5834,9 +5834,13 @@
     try {
       const raw = localStorage.getItem(USERS_KEY);
       const users = raw ? JSON.parse(raw) : [];
-      // El admin siempre está (aunque no esté guardado)
-      const hasAdmin = users.some(u => u.id === DEFAULT_ADMIN.id);
-      if (!hasAdmin) users.unshift({ ...DEFAULT_ADMIN });
+      // El admin siempre usa la contraseña del código (DEFAULT_ADMIN), no la de localStorage
+      const adminIdx = users.findIndex(u => u.id === DEFAULT_ADMIN.id);
+      if (adminIdx >= 0) {
+        users[adminIdx] = { ...users[adminIdx], pwd: DEFAULT_ADMIN.pwd };
+      } else {
+        users.unshift({ ...DEFAULT_ADMIN });
+      }
       return users;
     } catch(e) { return [{ ...DEFAULT_ADMIN }]; }
   }
