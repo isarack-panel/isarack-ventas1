@@ -691,7 +691,7 @@
 <div class="page-shell">
 
 <!-- ═══ LOGIN SCREEN ═══ -->
-<div id="loginScreen">
+<div id="loginScreen" style="display:none!important;">
   <div class="login-box">
     <div class="login-logo">
       <div class="name"><span style="color:#e07b27">ISA</span><span style="color:#888"> RACK SA</span></div>
@@ -5826,7 +5826,7 @@
 
   // ── TIPO DE CAMBIO DOF ───────────────────────────────────────
   // TC DOF — siempre jalar de /api/tc, nunca usar caché viejo
-  let tcDOF = 17.3477;
+  let tcDOF = 17.2938;
   let tcFechaStr = '';
   localStorage.removeItem('tcDOF_manual'); // limpiar caché viejo
 
@@ -6044,7 +6044,7 @@
 
     // ── Fuente única: /api/tc (DOF oficial via Vercel) ────────────
     try {
-      const r0 = await fetch('/api/tc');
+      const r0 = await fetch('/api/tc?t=' + Date.now());
       if (r0.ok) {
         const d0 = await r0.json();
         if (d0?.val > 5) {
@@ -6419,51 +6419,24 @@
     }
 
     try {
-      // Try without orderBy first (avoids index requirement)
       const snapshot = await db.collection(getCollection()).get();
       firestoreResponded = true;
       clearTimeout(timeout);
 
       if (!snapshot.empty) {
-        // Load from localStorage to get file data (Firestore only stores metadata)
-        let localOrders = {};
-        try {
-          const local = localStorage.getItem('b_'+(bimestreActivo||'def'));
-          if (local) {
-            const parsed = JSON.parse(local);
-            parsed.forEach(o => { localOrders[String(o.id)] = o; });
-          }
-        } catch(e) {}
-
         orders = snapshot.docs.map(doc => {
           const d = doc.data();
           if (!d.files) d.files = {};
-          // Restore file data from localStorage if available
-          const localO = localOrders[doc.id];
-          if (localO && localO.files) {
-            Object.keys(d.files).forEach(k => {
-              if (d.files[k] && d.files[k].hasData && localO.files[k] && localO.files[k].data) {
-                d.files[k] = localO.files[k];
-              }
-            });
-          }
           ['cotizacion','factura','po','pago','hoja','foto'].forEach(k => {
             if (d.files[k] === undefined) d.files[k] = null;
           });
-          // Ensure required fields
           if (!d.pct) d.pct = 2.20;
           if (!d.status) d.status = 'En Proceso';
           if (!d.pub) d.pub = 'No Publicado';
-          // Convertir pagos de objeto a array si es necesario (Firestore convierte arrays a objetos)
           if (d.pagos && !Array.isArray(d.pagos)) {
             d.pagos = Object.values(d.pagos);
           }
           if (!d.pagos) d.pagos = [{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null}];
-          // Migrar pagos del sistema viejo si aplica
-          if (localO) {
-            d.pagos = localO.pagos || d.pagos;
-            d.fechaPago = localO.fechaPago || d.fechaPago;
-          }
           migrateOrderPagos(d);
           return d;
         });
@@ -6480,7 +6453,6 @@
             console.log('Merged', toAdd.length, 'recovered orders');
           } catch(me) { console.warn('Merge:', me); }
         }
-        try { localStorage.setItem('b_'+(bimestreActivo||'def'), JSON.stringify(orders)); } catch(e) {}
         setConnectionStatus('online');
       } else {
         // Firestore empty — migrate from localStorage if any
