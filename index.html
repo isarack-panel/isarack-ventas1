@@ -5918,6 +5918,8 @@
     const tb = document.getElementById('tableBody');
     if (tb) tb.innerHTML = '';
     orders = [];
+    loadBimestres().then(() => loadOrders());
+    fetchTipoCambio();
   }
 
   function hideApp() {
