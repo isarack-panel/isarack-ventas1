@@ -5337,35 +5337,23 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      // Upload to Firebase Storage (no size limits)
+      // Siempre subir a Firebase Storage — sin base64 para garantizar acceso desde cualquier dispositivo
       if (window.storage && firebaseReady) {
         try {
-          const path = 'orders/' + id + '/' + key + '_' + file.name;
+          const path = 'orders/' + id + '/' + key + '_' + Date.now() + '_' + file.name;
           const ref = window.storage.ref(path);
           await ref.put(file);
           const url = await ref.getDownloadURL();
           o.files[key] = { name: file.name, url: url, path: path };
           setConnectionStatus('online');
         } catch(storageErr) {
-          console.warn('Storage upload failed, using base64:', storageErr);
-          // Fallback to base64 if Storage fails
-          const dataURL = await new Promise((res, rej) => {
-            const reader = new FileReader();
-            reader.onload = ev => res(ev.target.result);
-            reader.onerror = () => rej();
-            reader.readAsDataURL(file);
-          });
-          o.files[key] = { name: file.name, data: dataURL };
+          alert('Error al subir archivo a la nube. Verifica tu conexión e intenta de nuevo.');
+          console.error('Storage upload failed:', storageErr);
+          return;
         }
       } else {
-        // No Storage available - use base64
-        const dataURL = await new Promise((res, rej) => {
-          const reader = new FileReader();
-          reader.onload = ev => res(ev.target.result);
-          reader.onerror = () => rej();
-          reader.readAsDataURL(file);
-        });
-        o.files[key] = { name: file.name, data: dataURL };
+        alert('Sin conexión a Firebase. Conéctate a internet e intenta de nuevo.');
+        return;
       }
 
       // Si es la columna FACTURA y es un PDF, extraer número de factura
@@ -5544,24 +5532,21 @@
       if (!file) return;
       const today = new Date();
       const fecha = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-      // Subir a Firebase Storage si disponible
       if (window.storage && firebaseReady) {
         try {
-          const path = 'orders/' + id + '/pago' + idx + '_' + file.name;
+          const path = 'orders/' + id + '/pago' + idx + '_' + Date.now() + '_' + file.name;
           const ref = window.storage.ref(path);
           await ref.put(file);
           const url = await ref.getDownloadURL();
           o.pagos[idx].file  = { name: file.name, url: url, path: path };
           o.pagos[idx].fecha = o.pagos[idx].fecha || fecha;
         } catch(err) {
-          const dataURL = await new Promise((res) => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(file); });
-          o.pagos[idx].file  = { name: file.name, data: dataURL };
-          o.pagos[idx].fecha = o.pagos[idx].fecha || fecha;
+          alert('Error al subir archivo a la nube. Verifica tu conexión e intenta de nuevo.');
+          return;
         }
       } else {
-        const dataURL = await new Promise((res) => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(file); });
-        o.pagos[idx].file  = { name: file.name, data: dataURL };
-        o.pagos[idx].fecha = o.pagos[idx].fecha || fecha;
+        alert('Sin conexión a Firebase. Conéctate a internet e intenta de nuevo.');
+        return;
       }
       _saveOneOrder(o);
       updateRow(id);
@@ -5840,7 +5825,7 @@
   // Usuario administrador por defecto (siempre existe)
   const DEFAULT_ADMIN = {
     id: '6642708523',
-    pwd: 'dadimati 88',
+    pwd: 'dadimati88',
     name: 'Admin',
     role: 'admin'
   };
