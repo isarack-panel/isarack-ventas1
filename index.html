@@ -5914,22 +5914,10 @@
       chip.style.display = 'flex';
       btn.style.display  = 'block';
     }
-    // Limpiar filas hardcodeadas y renderizar desde localStorage inmediatamente
-    try {
-      const local = localStorage.getItem('b_'+(bimestreActivo||'def'));
-      if (local) {
-        orders = JSON.parse(local);
-        orders.forEach(migrateOrderPagos);
-        renderOrders();
-      } else {
-        // Sin datos locales: limpiar filas estáticas del HTML
-        const tb = document.getElementById('tableBody');
-        if (tb) tb.innerHTML = '';
-      }
-    } catch(e) {
-      const tb = document.getElementById('tableBody');
-      if (tb) tb.innerHTML = '';
-    }
+    // Limpiar tabla y esperar Firebase — no usar localStorage para evitar datos desincronizados
+    const tb = document.getElementById('tableBody');
+    if (tb) tb.innerHTML = '';
+    orders = [];
   }
 
   function hideApp() {
@@ -6408,37 +6396,18 @@
     }
 
     try {
-      // Try without orderBy first (avoids index requirement)
-      const snapshot = await db.collection(getCollection()).get();
-      firestoreResponded = true;
-      clearTimeout(timeout);
+      // Listener en tiempo real — se actualiza automáticamente en todos los dispositivos
+      if (window._ordersListener) window._ordersListener(); // cancelar listener anterior
+      window._ordersListener = db.collection(getCollection()).onSnapshot(snapshot => {
+        if (!firestoreResponded) {
+          firestoreResponded = true;
+          clearTimeout(timeout);
+        }
 
-      if (!snapshot.empty) {
-        // Load from localStorage to get file data (Firestore only stores metadata)
-        let localOrders = {};
-        try {
-          const local = localStorage.getItem('b_'+(bimestreActivo||'def'));
-          if (local) {
-            const parsed = JSON.parse(local);
-            parsed.forEach(o => { localOrders[String(o.id)] = o; });
-          }
-        } catch(e) {}
-
-        orders = snapshot.docs.map(doc => {
-          const d = doc.data();
-          if (!d.files) d.files = {};
-          // Restore file data from localStorage if available
-          const localO = localOrders[doc.id];
-          if (localO && localO.files) {
-            Object.keys(d.files).forEach(k => {
-              if (d.files[k] && d.files[k].hasData && localO.files[k] && localO.files[k].data) {
-                d.files[k] = localO.files[k];
-              }
-            });
-          }
-          ['cotizacion','factura','po','pago','hoja','foto'].forEach(k => {
-            if (d.files[k] === undefined) d.files[k] = null;
-          });
+        if (!snapshot.empty) {
+          orders = snapshot.docs.map(doc => {
+            const d = doc.data();
+            if (!d.files) d.files = {};
           // Ensure required fields
           if (!d.pct) d.pct = 2.20;
           if (!d.status) d.status = 'En Proceso';
@@ -6469,26 +6438,30 @@
               toAdd.forEach(o => batch.set(db.collection(getCollection()).doc(String(o.id)), o));
               await batch.commit();
               orders = [...orders, ...toAdd];
-              console.log('Merged', toAdd.length, 'recovered orders');
             } catch(me) { console.warn('Merge:', me); }
           }
         }
-        try { localStorage.setItem('b_'+(bimestreActivo||'def'), JSON.stringify(orders)); } catch(e) {}
         setConnectionStatus('online');
       } else {
-        // Firestore empty — migrate from localStorage if any
-        try {
-          const local = localStorage.getItem('b_'+(bimestreActivo||'def'));
-          if (local) {
-            const localOrders = JSON.parse(local);
-            if (localOrders.length > 0) {
-              orders = localOrders;
-              await saveOrders();
-            }
-          }
-        } catch(e) {}
         setConnectionStatus('online');
       }
+
+      renderOrders();
+      updateStats();
+      const overlay = document.getElementById('loadingOverlay');
+      if (overlay) overlay.style.display = 'none';
+
+      }, error => {
+        firestoreResponded = true;
+        clearTimeout(timeout);
+        console.warn('Firestore error:', error.message);
+        setConnectionStatus('offline');
+        loadFromLocal();
+        renderOrders();
+        updateStats();
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.style.display = 'none';
+      });
     } catch(e) {
       firestoreResponded = true;
       clearTimeout(timeout);
@@ -6499,13 +6472,7 @@
       updateStats();
       const overlay = document.getElementById('loadingOverlay');
       if (overlay) overlay.style.display = 'none';
-      return;
     }
-
-    renderOrders();
-    updateStats();
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) overlay.style.display = 'none';
   }
 
   // ── EXPORT / IMPORT ──────────────────────────────────────────
