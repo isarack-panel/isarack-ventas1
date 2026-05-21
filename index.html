@@ -5914,12 +5914,14 @@
       chip.style.display = 'flex';
       btn.style.display  = 'block';
     }
-    // Limpiar tabla y esperar Firebase — no usar localStorage para evitar datos desincronizados
+    // Limpiar tabla y esperar Firebase
     const tb = document.getElementById('tableBody');
     if (tb) tb.innerHTML = '';
     orders = [];
-    loadBimestres().then(() => loadOrders());
-    fetchTipoCambio();
+    setTimeout(() => {
+      loadBimestres().then(() => loadOrders());
+      fetchTipoCambio();
+    }, 100);
   }
 
   function hideApp() {
