@@ -5576,26 +5576,16 @@
     ensurePagos(o);
     const f = o.pagos[idx].file;
     if (!f) return;
-    if (f.url) { window.open(f.url, '_blank'); return; }
-    if (!f.data) return;
-    const overlay = document.getElementById('previewOverlay');
-    const content = document.getElementById('previewContent');
-    overlay.classList.add('open');
-    if (f.data.startsWith('data:image') || (f.name && /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name))) {
-      content.innerHTML = `<img src="${f.data}" alt="Pago ${idx+1}" style="max-width:92vw;max-height:90vh;border-radius:4px;"/>`;
+    const overlay1 = document.getElementById('previewOverlay');
+    const content1 = document.getElementById('previewContent');
+    overlay1.classList.add('open');
+    const isImg1 = f.url ? /\.(png|jpg|jpeg|gif|webp)/i.test(f.name||'') : (f.data && (f.data.startsWith('data:image') || /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name||'')));
+    const src1 = f.url || f.data;
+    if (!src1) { overlay1.classList.remove('open'); return; }
+    if (isImg1) {
+      content1.innerHTML = `<img src="${src1}" alt="Pago ${idx+1}" style="max-width:92vw;max-height:90vh;border-radius:4px;"/>`;
     } else {
-      try {
-        const base64 = f.data.split(',')[1];
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const blob = new Blob([bytes], { type: 'application/pdf' });
-        const blobUrl = URL.createObjectURL(blob);
-        content.innerHTML = `<iframe src="${blobUrl}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
-        overlay._blobUrl = blobUrl;
-      } catch(e) {
-        content.innerHTML = `<iframe src="${f.data}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
-      }
+      content1.innerHTML = `<iframe src="${src1}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
     }
   }
 
@@ -5616,28 +5606,14 @@
     const f = o.files[key];
     const overlay = document.getElementById('previewOverlay');
     const content = document.getElementById('previewContent');
-    // Si tiene URL de Firebase, abrir en nueva pestaña
-    if (f.url) { window.open(f.url, '_blank'); return; }
-    if (!f.data) return;
+    const isImg2 = f.url ? /\.(png|jpg|jpeg|gif|webp)/i.test(f.name||'') : (f.data && (f.data.startsWith('data:image') || /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name||'')));
+    const src2 = f.url || f.data;
+    if (!src2) return;
     overlay.classList.add('open');
-    if (f.data.startsWith('data:image') || (f.name && /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name))) {
-      content.innerHTML = `<img src="${f.data}" alt="preview" style="max-width:92vw;max-height:90vh;border-radius:4px;"/>`;
+    if (isImg2) {
+      content.innerHTML = `<img src="${src2}" alt="preview" style="max-width:92vw;max-height:90vh;border-radius:4px;"/>`;
     } else {
-      // PDF: convertir base64 a Blob para evitar bloqueos del navegador
-      try {
-        const base64 = f.data.split(',')[1];
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const blob = new Blob([bytes], { type: 'application/pdf' });
-        const blobUrl = URL.createObjectURL(blob);
-        content.innerHTML = `<iframe src="${blobUrl}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
-        // Limpiar blob URL cuando se cierre
-        overlay._blobUrl = blobUrl;
-      } catch(e) {
-        // Fallback directo
-        content.innerHTML = `<iframe src="${f.data}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
-      }
+      content.innerHTML = `<iframe src="${src2}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
     }
   }
 
@@ -5826,7 +5802,7 @@
 
   // ── TIPO DE CAMBIO DOF ───────────────────────────────────────
   // TC DOF — siempre jalar de /api/tc, nunca usar caché viejo
-  let tcDOF = 17.2938;
+  let tcDOF = 17.3213;
   let tcFechaStr = '';
   localStorage.removeItem('tcDOF_manual'); // limpiar caché viejo
 
@@ -6762,7 +6738,13 @@
     const canvas = document.getElementById('chartCanvas');
     const ctx = canvas.getContext('2d');
     const total = orders.length;
-    const pagadas = orders.filter(o => o.fechaPago && o.files && o.files.pago).length;
+    const isPagadoFn = o => {
+      const pgs = o.pagos || [];
+      const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
+      const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
+      return (tienArch && tot >= 100) || (!!(o.fechaPago) && pgs.length === 0);
+    };
+    const pagadas = orders.filter(isPagadoFn).length;
     const pendientes = total - pagadas;
     const pctPag = total ? Math.round((pagadas/total)*100) : 0;
     const pctPen = 100 - pctPag;
