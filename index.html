@@ -4750,65 +4750,46 @@
     }
 
     // ── 2. CLIENTE POR POSICIÓN EN EL PDF ────────────────────────
-    // Nuevo formato ISA RACK: la etiqueta "CLIENTE" aparece en un óvalo amarillo
-    // en la zona izquierda. El nombre del cliente está DESPUÉS de esa etiqueta.
-    // También puede estar en la zona izquierda debajo del slogan.
-    const ignorarTextos = /^(ISA\s*RACK|EN TU ALMAC[EÉ]N|SEGURO|Lib\.|Salvador|Rosas|Magall|Camino|Verde|Tijuana|BC\s*Mexico|CP\s*\d|www\.|@|DESCRIPCI[OÓ]N|CANTIDAD|PRECIO|DESC|IMPUESTO|IMPORTE|Fecha|Vencimiento|Comercial|Lic\.|Importe|IVA|Total|Presupuesto|Cotizaci[oó]n|P[áa]gina|ISA RACK SA|CLIENTE)/i;
+    // Nuevo formato ISA RACK: el nombre del cliente aparece en zona IZQUIERDA
+    // a la misma altura que "Presupuesto #" (lado derecho), sin etiqueta "CLIENTE"
+    // Posición: x < 45% del ancho, y entre el slogan (EN TU ALMACEN) y la tabla (DESCRIPCIÓN)
+    // Ejemplo real: BRANDON MENDOZA en y≈412, x≈111-252 (escala 2.5x)
+    // En escala pdf.js nativa ÷2.5 ≈ y=165, x=44-100
 
-    // Intento 1: buscar "CLIENTE" en el texto y tomar el contenido que sigue
     let clienteByPos = '';
-    const clienteTagMatch = text.match(/CLIENTE[:\s\n]+([A-ZÁÉÍÓÚÑ][\w\s&.,\-]{2,60}?)(?:\n|Presupuesto|Fecha|Vencimiento|$)/i);
-    if (clienteTagMatch) {
-      const candidate = clienteTagMatch[1].trim();
-      if (candidate && !/^(ISA\s*RACK|EN TU|ALMAC)/i.test(candidate)) {
-        clienteByPos = candidate;
-      }
-    }
-
-    // Intento 2: posición en el PDF (zona izquierda bajo slogan)
-    if (!clienteByPos && items.length) {
+    if (items.length) {
       const maxX = Math.max(...items.map(i => i.x + i.w));
       const leftZone = maxX * 0.46;
 
-      // Localizar el slogan "EN TU ALMACEN: SEGURO" para tomar el texto INMEDIATAMENTE debajo
-      const sloganItem = items.find(it => /en tu almac/i.test(it.str));
-      const sloganY = sloganItem ? sloganItem.y : 0;
-
-      // Localizar la etiqueta "CLIENTE" para buscar inmediatamente después
-      const clienteItem = items.find(it => /^cliente$/i.test(it.str.trim()));
-      const clienteY = clienteItem ? clienteItem.y : 0;
-
       const skipPattern = /^(ISA\s*RACK|ISA RACK|EN TU|ALMAC[EÉ]N|SEGURO|Lib\.|Salvador|Rosas|Magall|Camino|Verde|Tijuana|BC|Mexico|CP|www\.|@|DESCRIPCI[OÓ]N|CANTIDAD|PRECIO|UNITARIO|DESC|IMPUESTO|IMPORTE|Fecha|Vencimiento|Comercial|Lic\.|Importe|base|IVA|Total|Presupuesto|Cotizaci[oó]n|P[áa]gina|SERVICIO|PANEL|MARCO|VIGA|SOPORTE|MANIOBRA|ENTREGA|CONDICI|GARANTI|COTIZACI|TIPO DE|TIEMPO|INCLUYE|PRECIOS|CLIENTE)/i;
 
-      // Si hay etiqueta CLIENTE, buscar texto justo debajo de ella
-      const startY = clienteY > 0 ? clienteY + 2 : (sloganY > 0 ? sloganY + 3 : 55);
+      // Localizar el slogan y la primera fila de tabla para acotar la zona
+      const sloganItem = items.find(it => /en tu almac|seguro/i.test(it.str));
+      const tablaItem  = items.find(it => /descripci[oó]n/i.test(it.str));
+      const sloganY    = sloganItem ? sloganItem.y : 0;
+      const tablaY     = tablaItem  ? tablaItem.y  : 9999;
 
       const candidatos = items
         .filter(it => {
           return it.x < leftZone
-            && it.y > startY
-            && it.y < 280
-            && it.str.length >= 3
+            && it.y > sloganY + 2
+            && it.y < tablaY
+            && it.str.length >= 2
             && !skipPattern.test(it.str)
-            && !/^[\d\s,.$%\/\-:]+$/.test(it.str);
+            && !/^[\d\s,.$%\/\-:()]+$/.test(it.str);
         })
         .sort((a, b) => a.y - b.y);
 
       if (candidatos.length) {
-        const top = candidatos[0];
-        // Juntar ítems en la misma línea (±8px de Y)
+        // Agrupar palabras en la misma línea (±5px)
+        const topY = candidatos[0].y;
         const sameLine = candidatos
-          .filter(it => Math.abs(it.y - top.y) < 8)
+          .filter(it => Math.abs(it.y - topY) < 5)
           .sort((a, b) => a.x - b.x);
         clienteByPos = sameLine.map(i => i.str).join(' ').trim();
       }
     }
 
-    // Fallback por texto si la posición no encontró nada
-    if (!clienteByPos) {
-      const m = text.match(/(?:cliente|bill\s*to|sold\s*to|raz[oó]n\s*social)[:\s]+([A-ZÁÉÍÓÚÑ][\w\s&.,\-]{2,60}?)(?:\n|RFC|Tel|Fecha|$)/i);
-      if (m) clienteByPos = m[1].trim();
-    }
     result.cliente = clienteByPos;
 
     // ── 3. DETECTAR MONEDA DEL DOCUMENTO ─────────────────────────
