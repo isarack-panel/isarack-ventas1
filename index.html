@@ -6,6 +6,7 @@
   <title>ISA RACK SA — Control de Ventas</title>
 <!-- Google Fonts removido -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <!-- Firebase Compat SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -4522,7 +4523,8 @@
   <div class="bottom-actions">
     <button class="bb-btn" onclick="printTable()">🖨 IMPRIMIR</button>
     <button class="bb-btn export" onclick="exportCSV()">↑ EXPORTAR</button>
-    <button class="bb-btn" onclick="document.getElementById(&#39;importFile&#39;).click()">↑ IMPORTAR</button>
+    <button class="bb-btn" onclick="document.getElementById('importFile').click()">↑ IMPORTAR</button>
+    <button class="bb-btn" onclick="(function(){const k=localStorage.getItem('isa_claude_key');const r=prompt('🔑 API Key Anthropic (OCR PDFs imagen):\n'+(k?'Actual: '+k.slice(0,15)+'...':'Sin configurar')+'\n\nPega tu key o déjalo vacío para borrarla:',k||'');if(r===null)return;r.trim()?localStorage.setItem('isa_claude_key',r.trim()):localStorage.removeItem('isa_claude_key');alert(r.trim()?'✅ API Key guardada':'🗑 API Key borrada');})()" title="Configurar API Key para OCR de PDFs imagen">🔑 API KEY</button>
     <input type="file" id="importFile" class="hidden-file" accept=".json" onchange="importData(event)">
   </div>
 </div>
@@ -4578,10 +4580,6 @@
     <div class="field">
       <label>Número de Cotización (ej: S04587)</label>
       <input type="text" id="newOdoo" placeholder="S04587">
-    </div>
-    <div class="field">
-      <label>Número de Factura <span style="color:#777;font-size:10px;">(opcional — se extrae automáticamente)</span></label>
-      <input type="text" id="newFactura" placeholder="A4215 (opcional)">
     </div>
     <div class="field">
       <label>Nombre del Cliente</label>
@@ -4706,7 +4704,9 @@
     let result = { cotizacion: '', cliente: '', dlls: null, pesos: null, totalBruto: null, currency: '' };
 
     // ── 1. NÚMERO DE COTIZACIÓN ──────────────────────────────────
+    // Nuevo formato ISA RACK: "Presupuesto # S07093"
     const cotMatch = text.match(/(?:presupuesto|cotizaci[oó]n|folio|quote|order)[^\n#]*#?\s*(S\d{4,7}|SO\d{4,7}|Q\d{4,7}|COT[-\s]?\d{4,7})/i)
+      || text.match(/presupuesto\s*#?\s*(S\d{4,7})/i)
       || text.match(/\b(S\d{4,7}|SO\d{4,7}|Q\d{4,7})\b/i);
     if (cotMatch) result.cotizacion = (cotMatch[1] || cotMatch[0]).toUpperCase().trim();
 
@@ -4750,13 +4750,23 @@
     }
 
     // ── 2. CLIENTE POR POSICIÓN EN EL PDF ────────────────────────
-    // En PDFs de ISARACK el cliente está en la esquina superior IZQUIERDA,
-    // debajo del logo/slogan ("EN TU ALMACÉN: SEGURO!!") y antes de la tabla.
-    // Posición aproximada: x < 45% del ancho, y entre 55px y 220px desde arriba.
-    const ignorarTextos = /^(ISA\s*RACK|EN TU ALMAC[EÉ]N|SEGURO|Lib\.|Salvador|Rosas|Magall|Camino|Verde|Tijuana|BC\s*Mexico|CP\s*\d|www\.|@|DESCRIPCI[OÓ]N|CANTIDAD|PRECIO|DESC|IMPUESTO|IMPORTE|Fecha|Vencimiento|Comercial|Lic\.|Importe|IVA|Total|Presupuesto|Cotizaci[oó]n|P[áa]gina|ISA RACK SA)/i;
+    // Nuevo formato ISA RACK: la etiqueta "CLIENTE" aparece en un óvalo amarillo
+    // en la zona izquierda. El nombre del cliente está DESPUÉS de esa etiqueta.
+    // También puede estar en la zona izquierda debajo del slogan.
+    const ignorarTextos = /^(ISA\s*RACK|EN TU ALMAC[EÉ]N|SEGURO|Lib\.|Salvador|Rosas|Magall|Camino|Verde|Tijuana|BC\s*Mexico|CP\s*\d|www\.|@|DESCRIPCI[OÓ]N|CANTIDAD|PRECIO|DESC|IMPUESTO|IMPORTE|Fecha|Vencimiento|Comercial|Lic\.|Importe|IVA|Total|Presupuesto|Cotizaci[oó]n|P[áa]gina|ISA RACK SA|CLIENTE)/i;
 
+    // Intento 1: buscar "CLIENTE" en el texto y tomar el contenido que sigue
     let clienteByPos = '';
-    if (items.length) {
+    const clienteTagMatch = text.match(/CLIENTE[:\s\n]+([A-ZÁÉÍÓÚÑ][\w\s&.,\-]{2,60}?)(?:\n|Presupuesto|Fecha|Vencimiento|$)/i);
+    if (clienteTagMatch) {
+      const candidate = clienteTagMatch[1].trim();
+      if (candidate && !/^(ISA\s*RACK|EN TU|ALMAC)/i.test(candidate)) {
+        clienteByPos = candidate;
+      }
+    }
+
+    // Intento 2: posición en el PDF (zona izquierda bajo slogan)
+    if (!clienteByPos && items.length) {
       const maxX = Math.max(...items.map(i => i.x + i.w));
       const leftZone = maxX * 0.46;
 
@@ -4764,16 +4774,20 @@
       const sloganItem = items.find(it => /en tu almac/i.test(it.str));
       const sloganY = sloganItem ? sloganItem.y : 0;
 
-      // El cliente está en la franja izquierda, justo DESPUÉS del slogan y ANTES de la fecha
-      // Filtrar textos del membrete propio de ISARACK
-      const skipPattern = /^(ISA\s*RACK|ISA RACK|EN TU|ALMAC[EÉ]N|SEGURO|Lib\.|Salvador|Rosas|Magall|Camino|Verde|Tijuana|BC|Mexico|CP|www\.|@|DESCRIPCI[OÓ]N|CANTIDAD|PRECIO|UNITARIO|DESC|IMPUESTO|IMPORTE|Fecha|Vencimiento|Comercial|Lic\.|Importe|base|IVA|Total|Presupuesto|Cotizaci[oó]n|P[áa]gina|SERVICIO|PANEL|MARCO|VIGA|SOPORTE|MANIOBRA|ENTREGA|CONDICI|GARANTI|COTIZACI|TIPO DE|TIEMPO|INCLUYE|PRECIOS)/i;
+      // Localizar la etiqueta "CLIENTE" para buscar inmediatamente después
+      const clienteItem = items.find(it => /^cliente$/i.test(it.str.trim()));
+      const clienteY = clienteItem ? clienteItem.y : 0;
+
+      const skipPattern = /^(ISA\s*RACK|ISA RACK|EN TU|ALMAC[EÉ]N|SEGURO|Lib\.|Salvador|Rosas|Magall|Camino|Verde|Tijuana|BC|Mexico|CP|www\.|@|DESCRIPCI[OÓ]N|CANTIDAD|PRECIO|UNITARIO|DESC|IMPUESTO|IMPORTE|Fecha|Vencimiento|Comercial|Lic\.|Importe|base|IVA|Total|Presupuesto|Cotizaci[oó]n|P[áa]gina|SERVICIO|PANEL|MARCO|VIGA|SOPORTE|MANIOBRA|ENTREGA|CONDICI|GARANTI|COTIZACI|TIPO DE|TIEMPO|INCLUYE|PRECIOS|CLIENTE)/i;
+
+      // Si hay etiqueta CLIENTE, buscar texto justo debajo de ella
+      const startY = clienteY > 0 ? clienteY + 2 : (sloganY > 0 ? sloganY + 3 : 55);
 
       const candidatos = items
         .filter(it => {
-          const afterSlogan = sloganY > 0 ? it.y > sloganY + 3 : it.y > 55;
           return it.x < leftZone
-            && afterSlogan
-            && it.y < 250
+            && it.y > startY
+            && it.y < 280
             && it.str.length >= 3
             && !skipPattern.test(it.str)
             && !/^[\d\s,.$%\/\-:]+$/.test(it.str);
@@ -4799,11 +4813,17 @@
 
     // ── 3. DETECTAR MONEDA DEL DOCUMENTO ─────────────────────────
     // ISARACK indica "PRECIOS EN USD" o "PRECIOS EN MXN" al pie del documento
-    const isUSD = /precios\s+en\s+usd|denominaci[oó]n[:\s]+usd|usd/i.test(text);
-    const isMXN = /precios\s+en\s+mxn|pesos\s+mexicanos|m\.n\.|mxn/i.test(text);
+    // Nuevo formato: "PRECIOS EN MXN" en texto negro al pie
+    const isUSD = /precios\s+en\s+(?:usd|dlls|dollars)|denominaci[oó]n[:\s]+usd|\busd\b/i.test(text);
+    const isMXN = /precios\s+en\s+mxn|pesos\s+mexicanos|m\.n\.|mxn|\bpesos\b/i.test(text);
 
-    // ── 4. EXTRAER EL TOTAL FINAL (renglón "Total" en negritas) ──
+    // ── 4. EXTRAER EL TOTAL FINAL y NETO ─────────────────────────
+    // Nuevo formato ISA RACK:
+    //   "Importe base   $ 12,020.86"   ← NETO (sin IVA)
+    //   "IVA 8%         $    961.67"
+    //   "Total          $ 12,982.53"   ← TOTAL BRUTO (con IVA)
     let totalBruto = null;
+    let importeBase = null;   // neto directo del PDF
     const normalText = text.replace(/\s+/g, ' ');
 
     // Universal number parser — handles European (1.234,56) and American (1,234.56)
@@ -4825,6 +4845,13 @@
       return parseFloat(raw.replace(',','.')) || 0;
     }
 
+    // Buscar "Importe base" → neto directo
+    const baseMatch = normalText.match(/[Ii]mporte\s+base\s+\$?\s*([\d][\d.,]*)/);
+    if (baseMatch) {
+      const num = parseUniversal(baseMatch[1]);
+      if (num > 0) importeBase = num;
+    }
+
     // Strategy A: find "Total" — take the LAST occurrence (grand total not subtotals)
     const totalMatches = [...normalText.matchAll(/\bTotal\b[^\d$]{0,10}\$?\s*([\d][\d.,]*)/gi)];
     if (totalMatches.length) {
@@ -4840,14 +4867,17 @@
       if (nums.length) totalBruto = Math.max(...nums);
     }
 
-    // ── 5. APLICAR ÷ 1.08 y asignar a columna correcta (EXCLUSIVO) ──
-    if (totalBruto) {
+    // ── 5. APLICAR NETO y asignar a columna correcta (EXCLUSIVO) ──
+    if (totalBruto || importeBase) {
       result.totalBruto = totalBruto;
-      const neto = parseFloat((totalBruto / 1.08).toFixed(2));
+      // Preferir "Importe base" del PDF como neto (más preciso)
+      const neto = importeBase
+        ? parseFloat(importeBase.toFixed(2))
+        : parseFloat(((totalBruto || 0) / 1.08).toFixed(2));
       // Regla: USD si el doc dice "PRECIOS EN USD" o monto < 50,000
       // MXN si el doc dice "PRECIOS EN MXN" o monto >= 50,000
       // NUNCA ambos al mismo tiempo
-      const esUSD = isUSD || (!isMXN && totalBruto < 50000);
+      const esUSD = isUSD || (!isMXN && (totalBruto || importeBase || 0) < 50000);
       if (esUSD) {
         result.dlls  = neto;
         result.pesos = null;   // asegurar exclusividad
@@ -4893,33 +4923,41 @@
     // SIEMPRE inicializar en 0
     result.descuentoPct = 0;
 
-    // Intento 1: "Descuento: 5%" o "Desc: 3%" o "5% descuento" explícito en texto
-    const descExplicit = flatText.match(/desc(?:uento)?\s*[:\-]?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/i)
-                      || flatText.match(/(\d{1,2}(?:[.,]\d{1,2})?)\s*%\s*(?:de\s*)?desc(?:uento)?/i);
-    if (descExplicit) {
-      result.descuentoPct = parseFloat((descExplicit[1] || descExplicit[0]).replace(',', '.')) || 0;
+    // REGLA: el descuento está en la columna DESC. del PDF
+    // Aparece como "-10%" o "10%" en esa columna específica
+    // NUNCA confundir con IVA(8%) que está en la columna IMPUESTOS
+
+    // Intento 1: buscar patrón "-10%" o "DESC. ... 10%" explícito
+    // Ignorar cualquier % que esté precedido o seguido de "IVA", "impuesto", "tax"
+    const flatNoIva = flatText
+      .replace(/IVA\s*[\(\d%\)]+/gi, '')        // quitar "IVA(8%)" completamente
+      .replace(/impuesto[^\n]*/gi, '')            // quitar líneas de impuestos
+      .replace(/\d+\s*%\s*(?=\s*IVA)/gi, '');    // quitar "8% IVA"
+
+    // Buscar en columna DESC: valores como "-10%" o "10%" que aparecen SOLO en esa columna
+    // El patrón en el nuevo PDF es: precio_tachado precio_real -10% IVA(8%) $importe
+    const descColMatch = flatNoIva.match(/[-\u2212](\d{1,2}(?:[.,]\d{1,2})?)\s*%/g);
+    if (descColMatch && descColMatch.length) {
+      // Tomar el promedio de todos los descuentos de línea encontrados
+      const vals = descColMatch.map(m => parseFloat(m.replace(/[-\u2212%]/g,'').replace(',','.')) || 0).filter(v => v > 0 && v < 50);
+      if (vals.length) {
+        result.descuentoPct = parseFloat((vals.reduce((a,b)=>a+b,0) / vals.length).toFixed(1));
+      }
     }
 
-    // Intento 2: columna DESC% en tabla — calcular descuento global promedio ponderado
-    if (result.descuentoPct === 0 && /\bdesc(?:uento)?\b/i.test(flatText)) {
-      let totalSinDesc = 0;
-      let totalConDesc = 0;
-      const linePattern = /([\d.,]+)\s+([\d.,]+)\s+\$?\s*([\d.,]+)/g;
-      [...flatText.matchAll(linePattern)].forEach(m => {
-        const precio  = parseEuro(m[1]);
-        const desc    = parseEuro(m[2]);
-        const importe = parseEuro(m[3]);
-        if (precio > 0 && importe > 0 && desc >= 0.1 && desc <= 30) {
-          const factor = 1 - desc / 100;
-          if (factor > 0) {
-            totalConDesc += importe;
-            totalSinDesc += importe / factor;
-          }
-        }
-      });
-      if (totalSinDesc > 0 && totalConDesc > 0) {
-        const pctCalc = Math.round(((totalSinDesc - totalConDesc) / totalSinDesc) * 100 * 10) / 10;
-        if (pctCalc > 0) result.descuentoPct = pctCalc;
+    // Intento 2: si no hay "-%" buscar columna DESC explícita con número sin signo
+    // Solo si el texto contiene la palabra "DESC." como encabezado de columna
+    if (result.descuentoPct === 0 && /\bDESC\.\b/i.test(flatText)) {
+      // Buscar filas con: precio precio_con_desc desc% IVA importe
+      // En ISA RACK nuevo formato: "42.00 37.80 -10% IVA(8%) $ 37.80"
+      const linePattern = /(\d[\d.,]+)\s+(\d[\d.,]+)\s+[-\u2212]?(\d{1,2}(?:[.,]\d)?)\s*%\s*IVA/gi;
+      const descVals = [];
+      for (const m of flatText.matchAll(linePattern)) {
+        const d = parseFloat(m[3].replace(',','.'));
+        if (d > 0 && d < 50) descVals.push(d);
+      }
+      if (descVals.length) {
+        result.descuentoPct = parseFloat((descVals.reduce((a,b)=>a+b,0) / descVals.length).toFixed(1));
       }
     }
 
@@ -4936,6 +4974,68 @@
       return 1.30;
     }
     result.pctSugerido = descuentoToPct(result.descuentoPct);
+
+    return result;
+  }
+
+  // ── OCR CON TESSERACT.JS (gratis, corre en el navegador) ──────
+  async function extractWithClaudeOCR(file) {
+    // 1. Renderizar PDF como imagen con pdf.js
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: new Uint8Array(ab)}).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2.5 }); // alta resolución para mejor OCR
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    // 2. OCR con Tesseract.js (español + inglés para números)
+    const { data: { text } } = await Tesseract.recognize(canvas, 'spa+eng', {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          const statusEl = document.getElementById('extractStatus');
+          if (statusEl) statusEl.innerHTML = `<span class="loading-spinner"></span> OCR en progreso: ${Math.round(m.progress * 100)}%`;
+        }
+      }
+    });
+
+    // 3. Parsear el texto con los mismos patrones que usamos para PDFs normales
+    const result = { cotizacion:'', cliente:'', totalBruto:null, importeBase:null, moneda:'', descuentoPct:0 };
+
+    // Cotización: "Presupuesto # S07093"
+    const cotMatch = text.match(/[Pp]resupuesto\s*#?\s*(S\d{4,7})/i) || text.match(/\b(S\d{4,7})\b/);
+    if (cotMatch) result.cotizacion = cotMatch[1].toUpperCase();
+
+    // Moneda
+    if (/PRECIOS\s+EN\s+MXN|MXN/i.test(text)) result.moneda = 'MXN';
+    else if (/PRECIOS\s+EN\s+(?:USD|DLLS)/i.test(text)) result.moneda = 'USD';
+
+    // Importe base (neto sin IVA)
+    const baseMatch = text.match(/[Ii]mporte\s+base\s+\$?\s*([\d,. ]+)/);
+    if (baseMatch) result.importeBase = parseFloat(baseMatch[1].replace(/[, ]/g,'').replace(',','.')) || null;
+
+    // Total
+    const totalMatches = [...text.matchAll(/Total\b[^\d$]{0,15}\$?\s*([\d][\d,. ]*)/gi)];
+    if (totalMatches.length) {
+      const last = totalMatches[totalMatches.length - 1];
+      result.totalBruto = parseFloat(last[1].replace(/[, ]/g,'')) || null;
+    }
+
+    // Descuento — SOLO columna DESC, nunca IVA
+    // Buscar "-10%" o patrones negativos en columna DESC
+    const textSinIva = text.replace(/IVA[^\n]*/gi, '').replace(/impuesto[^\n]*/gi, '');
+    const descMatches = [...textSinIva.matchAll(/[-](\d{1,2}(?:[.,]\d{1,2})?)\s*%/g)];
+    const descs = descMatches.map(m => parseFloat(m[1].replace(',','.'))).filter(n => n > 0 && n < 50);
+    if (descs.length) result.descuentoPct = parseFloat((descs.reduce((a,b)=>a+b,0)/descs.length).toFixed(1));
+
+    // Cliente: texto bajo etiqueta CLIENTE
+    const clienteMatch = text.match(/CLIENTE[:\s\n]+([A-ZÁÉÍÓÚÑ][^\n]{2,50})/i);
+    if (clienteMatch) {
+      const c = clienteMatch[1].trim();
+      if (!/presupuesto|fecha|vencimiento|comercial/i.test(c)) result.cliente = c;
+    }
 
     return result;
   }
@@ -4969,25 +5069,80 @@
 
     // Step 3: Extract PDF data from the original file object
     try {
-      const data = await extractPdfData(file);
-      const netoLabel = data.currency === 'USD' ? 'Neto DLLS (÷1.08)' : data.currency === 'MXN' ? 'Neto Pesos (÷1.08)' : 'Neto (÷1.08)';
-      const netoVal = data.dlls || data.pesos;
-      status.innerHTML = `
-        <div class="extract-field"><span class="extract-key">Cotización</span><span class="extract-val">${data.cotizacion || 'No encontrado'}</span></div>
-        <div class="extract-field"><span class="extract-key">Factura</span><span class="extract-val">${data.factura || 'No encontrado'}</span></div>
-        <div class="extract-field"><span class="extract-key">Descuento detectado</span><span class="extract-val">${data.descuentoPct > 0 ? data.descuentoPct + '%' : 'Sin descuento'}</span></div>
-        <div class="extract-field" style="background:rgba(107,107,107,.15);padding:3px 4px;border-radius:3px;">
-          <span class="extract-key">▶ Comisión asignada</span>
-          <span class="extract-val" style="font-size:14px;">${data.pctSugerido}%</span>
-        </div>
-        <div class="extract-field"><span class="extract-key">Cliente</span><span class="extract-val">${data.cliente || 'No encontrado'}</span></div>
-        <div class="extract-field"><span class="extract-key">Moneda detectada</span><span class="extract-val">${data.currency || '?'}</span></div>
-        <div class="extract-field"><span class="extract-key">Total bruto (PDF)</span><span class="extract-val">${data.totalBruto ? '$' + data.totalBruto.toFixed(2) : '—'}</span></div>
-        <div class="extract-field" style="background:rgba(107,107,107,.1);padding:3px 4px;border-radius:3px;">
-          <span class="extract-key" style="color:#6b6b6b;">▶ ${netoLabel}</span>
-          <span class="extract-val" style="font-size:15px;">${netoVal ? '$' + netoVal.toFixed(2) : '—'}</span>
-        </div>
-      `;
+      let data = await extractPdfData(file);
+
+      // ── DETECCIÓN PDF IMAGEN: si no se extrajo nada, intentar desde nombre de archivo ──
+      const noData = !data.cotizacion && !data.cliente && !data.totalBruto && !data.dlls && !data.pesos;
+      if (noData) {
+        data._esPDFImagen = true;
+        // Patrón: "ISARACK S07093 BRANDON MENDOZA.pdf" o "S07093 NOMBRE.pdf"
+        const fname = file.name.replace(/\.pdf$/i, '').trim();
+        const cotMatch = fname.match(/\b(S\d{4,7})\b/i);
+        if (cotMatch) {
+          data.cotizacion = cotMatch[1].toUpperCase();
+          // El cliente es todo lo que está DESPUÉS del número de cotización
+          const afterCot = fname.slice(fname.indexOf(cotMatch[0]) + cotMatch[0].length).trim();
+          // Quitar prefijo "ISARACK" si está antes
+          const clienteRaw = afterCot.replace(/^[\s\-_]+/, '').trim();
+          if (clienteRaw.length > 1) data.cliente = clienteRaw;
+        }
+      }
+
+      if (data._esPDFImagen) {
+        // Intentar OCR con Tesseract primero
+        status.innerHTML = '<span class="loading-spinner"></span> PDF imagen — iniciando OCR gratuito...';
+        try {
+          const ocr = await extractWithClaudeOCR(file);
+          // Si Tesseract encontró algo, usarlo; si no, usar lo del nombre del archivo
+          if (ocr.cotizacion) data.cotizacion = ocr.cotizacion;
+          if (ocr.cliente)    data.cliente    = ocr.cliente;
+          if (ocr.moneda)     data.currency   = ocr.moneda;
+          data.descuentoPct = ocr.descuentoPct || 0;
+          data.totalBruto   = ocr.totalBruto || null;
+          const importeBase = ocr.importeBase || null;
+          const neto = importeBase || (data.totalBruto ? parseFloat((data.totalBruto / 1.08).toFixed(2)) : null);
+          const isMXN = (ocr.moneda || '').toUpperCase() === 'MXN' || (neto && neto >= 50000);
+          if (neto) {
+            if (isMXN) { data.pesos = neto; data.dlls = null; data.currency = 'MXN'; }
+            else        { data.dlls = neto;  data.pesos = null; data.currency = 'USD'; }
+          }
+          function descToPct(d) { if(d<0.1)return 2.20; if(d<=3)return 1.90; if(d<=6)return 1.60; return 1.30; }
+          data.pctSugerido = descToPct(data.descuentoPct);
+          data._esPDFImagen = false; // OCR exitoso, mostrar resumen normal
+        } catch(ocrErr) {
+          console.warn('Tesseract OCR error:', ocrErr);
+          // Fallback: usar datos del nombre del archivo
+        }
+      }
+
+      const netoLabel2 = data.currency === 'USD' ? 'Neto DLLS' : data.currency === 'MXN' ? 'Neto Pesos' : 'Neto';
+      const netoVal2 = data.dlls || data.pesos;
+
+      if (data._esPDFImagen) {
+        // OCR falló — mostrar lo que se pudo del nombre
+        const fromFile = (data.cotizacion || data.cliente)
+          ? `✅ Del nombre del archivo: <strong>${data.cotizacion || ''}</strong> ${data.cliente ? '— ' + data.cliente : ''}<br><span style="color:#aaa;font-size:11px;">OCR no disponible — moneda y totales ingrésalos manualmente.</span>`
+          : '⚠ PDF imagen. Ingresa los datos manualmente.';
+        status.innerHTML = `<span style="color:#f0a500">${fromFile}</span>`;
+        if (data.cotizacion) document.getElementById('newOdoo').value = data.cotizacion;
+        if (data.cliente)    document.getElementById('newCliente').value = data.cliente;
+      } else {
+        status.innerHTML = `
+          <div class="extract-field"><span class="extract-key">Cotización</span><span class="extract-val">${data.cotizacion || 'No encontrado'}</span></div>
+          <div class="extract-field"><span class="extract-key">Descuento detectado</span><span class="extract-val">${data.descuentoPct > 0 ? data.descuentoPct + '%' : 'Sin descuento'}</span></div>
+          <div class="extract-field" style="background:rgba(107,107,107,.15);padding:3px 4px;border-radius:3px;">
+            <span class="extract-key">▶ Comisión asignada</span>
+            <span class="extract-val" style="font-size:14px;">${data.pctSugerido}%</span>
+          </div>
+          <div class="extract-field"><span class="extract-key">Cliente</span><span class="extract-val">${data.cliente || 'No encontrado'}</span></div>
+          <div class="extract-field"><span class="extract-key">Moneda detectada</span><span class="extract-val">${data.currency || '?'}</span></div>
+          <div class="extract-field"><span class="extract-key">Total bruto (PDF)</span><span class="extract-val">${data.totalBruto ? '$' + data.totalBruto.toFixed(2) : '—'}</span></div>
+          <div class="extract-field" style="background:rgba(107,107,107,.1);padding:3px 4px;border-radius:3px;">
+            <span class="extract-key" style="color:#6b6b6b;">▶ ${netoLabel2}</span>
+            <span class="extract-val" style="font-size:15px;">${netoVal2 ? '$' + netoVal2.toFixed(2) : '—'}</span>
+          </div>
+        `;
+      }
       // Guardar pct sugerido por descuento detectado
       window._pendingPctSugerido = data.pctSugerido || 2.20;
       // Update visual indicator
