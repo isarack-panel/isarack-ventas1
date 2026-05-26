@@ -4781,12 +4781,17 @@
         .sort((a, b) => a.y - b.y);
 
       if (candidatos.length) {
-        // Agrupar palabras en la misma línea (±5px)
+        // Agrupar palabras en la misma línea (±5px), solo lado izquierdo
         const topY = candidatos[0].y;
         const sameLine = candidatos
           .filter(it => Math.abs(it.y - topY) < 5)
           .sort((a, b) => a.x - b.x);
-        clienteByPos = sameLine.map(i => i.str).join(' ').trim();
+        let raw = sameLine.map(i => i.str).join(' ').trim();
+        // Cortar en cuanto aparezca texto del lado derecho (Presupuesto, #, S0XXXXX)
+        raw = raw
+          .replace(/\s*(Presu\s*puesto|Presupuesto|Cotizaci[oó]n|#\s*S\d+|S0\d{4,}|S07\d+).*/i, '')
+          .trim();
+        clienteByPos = raw;
       }
     }
 
