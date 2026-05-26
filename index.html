@@ -5024,18 +5024,50 @@
     }
 
     // Descuento — SOLO columna DESC, nunca IVA
-    // Buscar "-10%" o patrones negativos en columna DESC
+    // Tesseract puede leer "-10%" o simplemente "10%" en esa columna
     const textSinIva = text.replace(/IVA[^\n]*/gi, '').replace(/impuesto[^\n]*/gi, '');
-    const descMatches = [...textSinIva.matchAll(/[-](\d{1,2}(?:[.,]\d{1,2})?)\s*%/g)];
+    // Buscar con signo negativo primero
+    let descMatches = [...textSinIva.matchAll(/[-](\d{1,2}(?:[.,]\d{1,2})?)\s*%/g)];
+    // Si no hay negativos pero hay columna DESC., buscar porcentajes simples
+    if (!descMatches.length && /\bDESC\b/i.test(text)) {
+      descMatches = [...textSinIva.matchAll(/\b(\d{1,2}(?:[.,]\d{1,2})?)\s*%/g)];
+    }
     const descs = descMatches.map(m => parseFloat(m[1].replace(',','.'))).filter(n => n > 0 && n < 50);
     if (descs.length) result.descuentoPct = parseFloat((descs.reduce((a,b)=>a+b,0)/descs.length).toFixed(1));
 
-    // Cliente: texto bajo etiqueta CLIENTE
-    const clienteMatch = text.match(/CLIENTE[:\s\n]+([A-ZÁÉÍÓÚÑ][^\n]{2,50})/i);
-    if (clienteMatch) {
-      const c = clienteMatch[1].trim();
-      if (!/presupuesto|fecha|vencimiento|comercial/i.test(c)) result.cliente = c;
+    // Cliente: en nuevo formato ISA RACK el nombre está en zona izquierda
+    // entre el slogan (EN TU ALMACEN) y la línea de Presupuesto #
+    // Tesseract lo devuelve como palabras sueltas en y≈350-450, x<400
+    // Estrategia: tomar palabras que estén DESPUÉS del slogan y ANTES de "Presupuesto"
+    // y en la mitad izquierda de la página
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    let clienteFound = '';
+
+    // Buscar bloque entre "SEGURO" y "Presupuesto"
+    let inZona = false;
+    for (const line of lines) {
+      if (/SEGURO|EN TU ALMAC/i.test(line)) { inZona = true; continue; }
+      if (/presupuesto|fecha del|vencimiento|descripci/i.test(line)) { inZona = false; }
+      if (inZona && line.length >= 3) {
+        // Ignorar texto del membrete derecho (ISA RACK SA, direcciones)
+        if (/^(ISA|RACK|SA$|Lib\.|Salvador|Rosas|Magall|Camino|Verde|Tijuana|BC|Mexico|CP|www\.|@)/i.test(line)) continue;
+        // Ignorar si parece número o código postal
+        if (/^\d+$/.test(line)) continue;
+        clienteFound = line;
+        break;
+      }
     }
+
+    // Fallback: buscar "CLIENTE" seguido de nombre
+    if (!clienteFound) {
+      const clienteMatch = text.match(/CLIENTE[:\s\n]+([A-ZÁÉÍÓÚÑ][^\n]{2,50})/i);
+      if (clienteMatch) {
+        const c = clienteMatch[1].trim();
+        if (!/presupuesto|fecha|vencimiento|comercial/i.test(c)) clienteFound = c;
+      }
+    }
+
+    result.cliente = clienteFound;
 
     return result;
   }
