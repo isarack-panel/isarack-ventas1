@@ -4705,10 +4705,12 @@
 
     // ── 1. NÚMERO DE COTIZACIÓN ──────────────────────────────────
     // Nuevo formato ISA RACK: "Presupuesto # S07093"
-    const cotMatch = text.match(/(?:presupuesto|cotizaci[oó]n|folio|quote|order)[^\n#]*#?\s*(S\d{4,7}|SO\d{4,7}|Q\d{4,7}|COT[-\s]?\d{4,7})/i)
-      || text.match(/presupuesto\s*#?\s*(S\d{4,7})/i)
-      || text.match(/\b(S\d{4,7}|SO\d{4,7}|Q\d{4,7})\b/i);
-    if (cotMatch) result.cotizacion = (cotMatch[1] || cotMatch[0]).toUpperCase().trim();
+    // Normalizar posibles lecturas erróneas (O→0)
+    const textNorm = text.replace(/[Pp]resupuesto\s*#\s*S([A-Z0-9]{4,7})/g, (m, p) => 'Presupuesto # S' + p.replace(/O/g,'0'));
+    const cotMatch = textNorm.match(/(?:presupuesto|cotizaci[oó]n|folio|quote|order)[^\n#]*#?\s*(S\d{4,7}|SO\d{4,7}|Q\d{4,7}|COT[-\s]?\d{4,7})/i)
+      || textNorm.match(/presupuesto\s*#?\s*(S\d{4,7})/i)
+      || textNorm.match(/\b(S\d{4,7}|SO\d{4,7}|Q\d{4,7})\b/i);
+    if (cotMatch) result.cotizacion = (cotMatch[1] || cotMatch[0]).toUpperCase().replace(/O/g,'0').trim();
 
     // ── 1b. NÚMERO DE FACTURA ─────────────────────────────────────
     // En facturas CFDI de ISARACK el texto es:
@@ -4978,21 +4980,6 @@
     const ctx = canvas.getContext('2d');
     await page.render({ canvasContext: ctx, viewport }).promise;
 
-    // ── HELPERS DE COLOR ─────────────────────────────────────────
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    function avgDarkColor(x, y, w, h) {
-      let rS=0,gS=0,bS=0,n=0;
-      for (let py=y; py<y+h; py++) for (let px=x; px<x+w; px++) {
-        const idx=(py*imageData.width+px)*4;
-        const r=imageData.data[idx],g=imageData.data[idx+1],b=imageData.data[idx+2];
-        if ((r+g+b)/3 < 140) { rS+=r; gS+=g; bS+=b; n++; }
-      }
-      return n ? [Math.round(rS/n), Math.round(gS/n), Math.round(bS/n)] : null;
-    }
-    const isBlack  = rgb => rgb && rgb[0]<80  && rgb[1]<80  && rgb[2]<80;
-    const isOrange = rgb => rgb && rgb[0]>150 && rgb[1]<130 && rgb[2]<100;
-
-    // ── OCR ───────────────────────────────────────────────────────
     const { data } = await Tesseract.recognize(canvas, 'spa+eng', {
       logger: m => {
         if (m.status === 'recognizing text') {
@@ -5002,52 +4989,74 @@
       }
     });
 
-    const words = data.words || [];
     const result = { cotizacion:'', cliente:'', totalBruto:null, importeBase:null, moneda:'', descuentoPct:0 };
     const W = canvas.width, H = canvas.height;
+    const words = data.words || [];
 
-    // ── CLIENTE: palabras NEGRAS en zona izquierda (x<40%, y entre 20%-45%) ──
-    const clientWords = words.filter(w => {
-      if (w.bbox.x0 > W*0.40) return false;
-      if (w.bbox.y0 < H*0.20 || w.bbox.y0 > H*0.45) return false;
-      const rgb = avgDarkColor(w.bbox.x0, w.bbox.y0, w.bbox.x1-w.bbox.x0, w.bbox.y1-w.bbox.y0);
-      return isBlack(rgb);
-    }).sort((a,b) => a.bbox.y0-b.bbox.y0 || a.bbox.x0-b.bbox.x0);
+    // ── COTIZACIÓN: patrón S0XXXX en mitad derecha de la página ──
+    // "Presupuesto # S07097" siempre aparece en x > 55% del ancho
+    // Tesseract puede leer O en lugar de 0 — normalizar
+    for (const w of words) {
+      const x0 = w.bbox ? w.bbox.x0 : (w.box ? w.box.x0 : 0);
+      const y0 = w.bbox ? w.bbox.y0 : (w.box ? w.box.y0 : 0);
+      if (x0 < W * 0.55) continue;
+      if (y0 < H * 0.10) continue;
+      if (y0 > H * 0.35) continue;
+      const t = w.text.trim().toUpperCase().replace(/O/g,'0');
+      if (/^S\d{4,7}$/.test(t)) { result.cotizacion = t; break; }
+    }
 
-    if (clientWords.length) {
-      const fy = clientWords[0].bbox.y0;
-      const fh = clientWords[0].bbox.y1 - fy;
-      result.cliente = clientWords
-        .filter(w => w.bbox.y0 < fy + fh*1.5)
+    // ── CLIENTE: primera línea de texto en zona izquierda ──
+    // Entre y=30%-50% de la página, x < 50%
+    // Excluir: SEGURO, EN TU ALMACEN, ISA RACK, Fecha, Vencimiento, Comercial
+    const skipWords = /^(EN|TU|ALMACEN|SEGURO|ISA|RACK|SA|Lib\.|Salvador|Rosas|Magallon|Camino|Verde|Tijuana|BC|Mexico|CP|Fecha|Vencimiento|Comercial|del|presupuesto:?|ISARACK|Q|DESCRIPCIÓN|DESCRIPCION|CANTIDAD|PRECIO|UNITARIO|DESC\.|IMPUESTOS|IMPORTE)$/i;
+    const clienteWords = words.filter(w => {
+      const x0 = w.bbox ? w.bbox.x0 : (w.box ? w.box.x0 : 0);
+      const y0 = w.bbox ? w.bbox.y0 : (w.box ? w.box.y0 : 0);
+      if (x0 > W * 0.50) return false;
+      if (y0 < H * 0.15) return false;   // debajo del logo
+      if (y0 > H * 0.30) return false;   // antes de la tabla (DESCRIPCIÓN empieza en 32%)
+      if (w.text.trim().length < 2) return false;
+      if (skipWords.test(w.text.trim())) return false;
+      if (/^\d+$/.test(w.text.trim())) return false;
+      return true;
+    }).sort((a,b) => {
+      const ay = a.bbox ? a.bbox.y0 : (a.box ? a.box.y0 : 0);
+      const by2 = b.bbox ? b.bbox.y0 : (b.box ? b.box.y0 : 0);
+      const ax = a.bbox ? a.bbox.x0 : (a.box ? a.box.x0 : 0);
+      const bx = b.bbox ? b.bbox.x0 : (b.box ? b.box.x0 : 0);
+      return ay - by2 || ax - bx;
+    });
+
+    if (clienteWords.length) {
+      const firstY = clienteWords[0].bbox ? clienteWords[0].bbox.y0 : (clienteWords[0].box ? clienteWords[0].box.y0 : 0);
+      const lineH  = (clienteWords[0].bbox ? clienteWords[0].bbox.y1 : (clienteWords[0].box ? clienteWords[0].box.y1 : firstY+30)) - firstY;
+      result.cliente = clienteWords
+        .filter(w => {
+          const y0 = w.bbox ? w.bbox.y0 : (w.box ? w.box.y0 : 0);
+          return y0 < firstY + lineH * 1.8;
+        })
         .map(w => w.text).join(' ').trim();
     }
 
-    // ── COTIZACIÓN: palabras NARANJAS con patrón S0XXXX ──────────
-    for (const w of words) {
-      if (/^S\d{4,7}$/i.test(w.text.trim())) {
-        const rgb = avgDarkColor(w.bbox.x0, w.bbox.y0, w.bbox.x1-w.bbox.x0, w.bbox.y1-w.bbox.y0);
-        if (isOrange(rgb)) { result.cotizacion = w.text.trim().toUpperCase(); break; }
-      }
-    }
-    if (!result.cotizacion) {
-      const m = data.text.match(/[Pp]resupuesto\s*#?\s*(S\d{4,7})/i) || data.text.match(/\b(S\d{4,7})\b/);
-      if (m) result.cotizacion = m[1].toUpperCase();
-    }
-
-    // ── MONEDA, TOTALES, DESCUENTO ────────────────────────────────
+    // ── MONEDA ────────────────────────────────────────────────────
     const text = data.text;
-    if (/PRECIOS\s+EN\s+MXN/i.test(text))          result.moneda = 'MXN';
+    if (/PRECIOS\s+EN\s+MXN/i.test(text))               result.moneda = 'MXN';
     else if (/PRECIOS\s+EN\s+(?:USD|DLLS)/i.test(text)) result.moneda = 'USD';
 
+    // ── IMPORTE BASE (neto) ───────────────────────────────────────
     const bm = text.match(/[Ii]mporte\s+base\s+\$?\s*([\d,. ]+)/);
     if (bm) result.importeBase = parseFloat(bm[1].replace(/[, ]/g,'')) || null;
 
+    // ── TOTAL ─────────────────────────────────────────────────────
     const tms = [...text.matchAll(/Total\b[^\d$]{0,15}\$?\s*([\d][\d,. ]*)/gi)];
     if (tms.length) result.totalBruto = parseFloat(tms[tms.length-1][1].replace(/[, ]/g,'')) || null;
 
-    const tsi = text.replace(/IVA[^\n]*/gi,'').replace(/impuesto[^\n]*/gi,'');
-    let dms = [...tsi.matchAll(/[-](\d{1,2}(?:[.,]\d{1,2})?)\s*%/g)];
-    if (!dms.length && /\bDESC\b/i.test(text)) dms = [...tsi.matchAll(/\b(\d{1,2}(?:[.,]\d{1,2})?)\s*%/g)];
+    // ── DESCUENTO: SOLO si hay valor negativo en columna DESC ────
+    // Nunca tomar IVA(8%) ni el 8% suelto que queda tras eliminar IVA
+    const tsi = text.replace(/IVA\s*\([^\)]*\)/gi,'').replace(/IVA\s*\d+%/gi,'');
+    // Solo buscar descuento con signo negativo explícito -X%
+    const dms = [...tsi.matchAll(/[-−](\d{1,2}(?:[.,]\d{1,2})?)\s*%/g)];
     const descs = dms.map(m=>parseFloat(m[1].replace(',','.'))).filter(n=>n>0&&n<50);
     if (descs.length) result.descuentoPct = parseFloat((descs.reduce((a,b)=>a+b,0)/descs.length).toFixed(1));
 
@@ -6223,6 +6232,9 @@
     let totalSFMXN = 0;   // sin factura (cuenta separada)
 
     orders.forEach(o => {
+      // Solo contar órdenes del período activo
+      if ((o.bimestre || 'ABR-MAY_2026') !== bimestreActivo) return;
+
       const pagos = o.pagos || [];
       const totalPagoPct = pagos.reduce((s, p) => s + (Number(p.pct) || 0), 0);
       const tieneArchivo = pagos.some(p => p.file || p.fecha) || !!(o.fechaPago);
