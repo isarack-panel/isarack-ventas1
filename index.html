@@ -6223,14 +6223,12 @@
     let totalSFMXN = 0;   // sin factura (cuenta separada)
 
     orders.forEach(o => {
-      // Determinar si está pagada — soporta sistema nuevo (pagos[]) y sistema viejo (fechaPago)
       const pagos = o.pagos || [];
       const totalPagoPct = pagos.reduce((s, p) => s + (Number(p.pct) || 0), 0);
       const tieneArchivo = pagos.some(p => p.file || p.fecha) || !!(o.fechaPago);
 
-      // Sistema nuevo: pagos[] con suma >= 100
-      // Sistema viejo (migración): tiene fechaPago o files.pago → contar como 100%
-      const isPagadoNuevo = tieneArchivo && totalPagoPct >= 100;
+      // PAGADO si: pct >= 100 (con o sin archivo) O sistema viejo con fechaPago
+      const isPagadoNuevo = totalPagoPct >= 100;
       const isPagadoViejo = !!(o.fechaPago) && pagos.length === 0;
       const isPagado = isPagadoNuevo || isPagadoViejo;
       if (!isPagado) return;
@@ -6270,13 +6268,13 @@
       const pgs = o.pagos || [];
       const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
       const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
-      return (tienArch && tot >= 100) || (!!(o.fechaPago) && pgs.length === 0);
+      return tot >= 100 || (!!(o.fechaPago) && pgs.length === 0);
     };
     const isParcialFn = o => {
       const pgs = o.pagos || [];
       const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
       const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
-      return tienArch && tot > 0 && tot < 100;
+      return tot > 0 && tot < 100;
     };
     const pag     = orders.filter(isPagadoFn).length;
     const parcial = orders.filter(isParcialFn).length;
@@ -6343,8 +6341,8 @@
         const pgs = o.pagos || [];
         const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
         const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
-        const pagado  = (tienArch && tot >= 100) || (!!(o.fechaPago) && pgs.length === 0);
-        const parcial = tienArch && tot > 0 && tot < 100;
+        const pagado  = tot >= 100 || (!!(o.fechaPago) && pgs.length === 0);
+        const parcial = tot > 0 && tot < 100;
         if (fPagos === 'pagado'  && !pagado)           return false;
         if (fPagos === 'parcial' && !parcial)           return false;
         if (fPagos === 'sin'     && (pagado || parcial)) return false;
@@ -6426,13 +6424,13 @@
       const pgs = o.pagos || [];
       const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
       const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
-      return (tienArch && tot >= 100) || (!!(o.fechaPago) && pgs.length === 0);
+      return tot >= 100 || (!!(o.fechaPago) && pgs.length === 0);
     };
     const isParcialFn = o => {
       const pgs = o.pagos || [];
       const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
       const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
-      return tienArch && tot > 0 && tot < 100;
+      return tot > 0 && tot < 100;
     };
     let filtered;
     if      (type === 'pagado')     filtered = orders.filter(isPagadoFn);
@@ -6911,7 +6909,7 @@
       const pgs = o.pagos || [];
       const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
       const tienArch = pgs.some(p => p.file || p.fecha) || !!(o.fechaPago);
-      return (tienArch && tot >= 100) || (!!(o.fechaPago) && pgs.length === 0);
+      return tot >= 100 || (!!(o.fechaPago) && pgs.length === 0);
     };
     const pagadas = orders.filter(isPagadoFn).length;
     const pendientes = total - pagadas;
