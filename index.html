@@ -6213,23 +6213,37 @@
     const tcEl = document.getElementById('tipoCambio');
     const tcFechaEl = document.getElementById('tcFecha');
 
-    // ── Fuente única: /api/tc (DOF oficial via Vercel) ────────────
+    // ── Fuente 1: exchangerate-api (gratuita, sin CORS) ──────────
     try {
-      const r0 = await fetch('/api/tc?t=' + Date.now());
-      if (r0.ok) {
-        const d0 = await r0.json();
-        if (d0?.val > 5) {
-          tcDOF = d0.val;
-          tcFechaStr = d0.fecha;
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF oficial — Banxico'; }
+      const r = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (r.ok) {
+        const d = await r.json();
+        if (d?.rates?.MXN > 5) {
+          tcDOF = d.rates.MXN;
+          const fecha = new Date(d.time_last_update_utc);
+          tcFechaStr = fecha.toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'});
+          localStorage.setItem('tcDOF_cache', JSON.stringify({val: tcDOF, fecha: tcFechaStr, ts: Date.now()}));
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC USD/MXN — ExchangeRate API'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats(); return;
         }
       }
     } catch(e) {}
 
-    // ── Si /api/tc falla: mostrar el último valor conocido sin cambiar nada ──
-    if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF — último valor conocido'; }
+    // ── Fuente 2: caché guardado en localStorage ──────────────────
+    try {
+      const cached = JSON.parse(localStorage.getItem('tcDOF_cache') || 'null');
+      if (cached && cached.val > 5) {
+        tcDOF = cached.val;
+        tcFechaStr = cached.fecha;
+        if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC — último valor guardado: ' + tcFechaStr; }
+        if (tcFechaEl) tcFechaEl.textContent = tcFechaStr + ' (caché)';
+        updateStats(); return;
+      }
+    } catch(e) {}
+
+    // ── Fallback: usar valor por defecto ─────────────────────────
+    if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC — valor por defecto'; }
     updateStats();
   }
 
