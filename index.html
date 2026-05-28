@@ -5532,36 +5532,14 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      // Upload to Firebase Storage (no size limits)
-      if (window.storage && firebaseReady) {
-        try {
-          const path = 'orders/' + id + '/' + key + '_' + file.name;
-          const ref = window.storage.ref(path);
-          await ref.put(file);
-          const url = await ref.getDownloadURL();
-          o.files[key] = { name: file.name, url: url, path: path };
-          setConnectionStatus('online');
-        } catch(storageErr) {
-          console.warn('Storage upload failed, using base64:', storageErr);
-          // Fallback to base64 if Storage fails
-          const dataURL = await new Promise((res, rej) => {
-            const reader = new FileReader();
-            reader.onload = ev => res(ev.target.result);
-            reader.onerror = () => rej();
-            reader.readAsDataURL(file);
-          });
-          o.files[key] = { name: file.name, data: dataURL };
-        }
-      } else {
-        // No Storage available - use base64
-        const dataURL = await new Promise((res, rej) => {
-          const reader = new FileReader();
-          reader.onload = ev => res(ev.target.result);
-          reader.onerror = () => rej();
-          reader.readAsDataURL(file);
-        });
-        o.files[key] = { name: file.name, data: dataURL };
-      }
+      // Guardar archivo como base64 en Firestore — nunca se borra
+      const dataURL = await new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = ev => res(ev.target.result);
+        reader.onerror = () => rej();
+        reader.readAsDataURL(file);
+      });
+      o.files[key] = { name: file.name, data: dataURL };
 
       // Si es la columna FACTURA y es un PDF, extraer número de factura
       if (key === 'factura' && file.type === 'application/pdf') {
@@ -5802,7 +5780,7 @@
     const overlay = document.getElementById('previewOverlay');
     const content = document.getElementById('previewContent');
     const isImg2 = f.url ? /\.(png|jpg|jpeg|gif|webp)/i.test(f.name||'') : (f.data && (f.data.startsWith('data:image') || /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name||'')));
-    const src2 = f.url || f.data;
+    const src2 = f.data || f.url;
     if (!src2) return;
     overlay.classList.add('open');
     if (isImg2) {
