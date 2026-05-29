@@ -16,7 +16,7 @@
     --bg: #1a1a1a;
     --bg2: #222222;
     --bg3: #2a2a2a;
-    --border: #333;
+    --border: #2e2e2e;
     --orange: #555;
     --orange2: #666;
     --green: #00c853;
@@ -170,11 +170,11 @@
     font-weight: 700; letter-spacing: .8px; transition: all .15s;
     display: inline-flex; align-items: center; gap: 3px;
   }
-  .btn-cotizacion { background: var(--orange); color: #fff; }
-  .btn-cotizacion:hover { background: var(--orange2); }
-  .btn-factura { background: #444; color: #fff; }
+  .btn-cotizacion { background: #2a1a10; color: #888; border: 1px solid #3a2a1a; }
+  .btn-cotizacion:hover { border-color: var(--orange); color: var(--orange); }
+  .btn-factura { background: var(--bg3); color: #666; border: 1px solid var(--border); }
   .btn-factura:hover { background: #555; }
-  .btn-po { background: #444; color: #fff; }
+  .btn-po { background: var(--bg3); color: #666; border: 1px solid var(--border); }
   .btn-po:hover { background: #555; }
   .btn-pago { background: #444; color: #fff; }
   .btn-pago:hover { background: #555; }
@@ -184,7 +184,7 @@
   .btn-hoja-entregado:hover { background: #2ecc71 !important; }
   .btn-foto { background: #444; color: #fff; }
   .btn-foto:hover { background: #555; }
-  .btn-uploaded { background: #27ae60; color: #fff; }
+  .btn-uploaded { background: #0d2218; color: #00c853; border: 1px solid #1a3d28 !important; }
 
   /* PERCENTAGE SELECT */
   .pct-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -780,14 +780,10 @@
         👁
       </button>
     </span>
-    <span class="stat-val" id="totalGanancias" title="Comisiones pagadas convertidas a MXN usando TC DOF $17.3908">$2,380.13 MXN</span>
-  <div style="padding-left:12px;margin-left:4px;display:flex;flex-direction:column;gap:1px;opacity:0.5;">
-    <span style="font-family:'Barlow Condensed',sans-serif;font-size:8px;letter-spacing:1.5px;color:#888;text-transform:uppercase;display:flex;align-items:center;gap:4px;">
-      s/fac
-      <button id="eyeBtnSF" onclick="toggleGananciasSF()" title="Mostrar/Ocultar sin factura" style="background:none;border:none;cursor:pointer;padding:0;color:#666;font-size:10px;line-height:1;">👁</button>
-    </span>
-    <span id="totalGananciasSF" style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:600;color:#888;letter-spacing:.5px;" title="Comisiones sin factura">$0.00 MXN</span>
-  </div>
+    <span class="stat-val" id="totalGanancias" title="Comisiones pagadas">$2,380.13 MXN</span>
+    <div style="margin-top:3px;">
+      <span id="totalGananciasSF" style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:500;color:#555;letter-spacing:.5px;" title="Comisiones sin factura">s/fac $0.00</span>
+    </div>
   </div>
   <div class="stat-item" style="border-left:1px solid #333;padding-left:16px;margin-left:4px;">
     <span class="stat-label">TC DOF <span id="tcFecha" style="font-size:8px;color:#777;letter-spacing:.5px;">2026-04-24</span></span>
@@ -818,7 +814,7 @@
 <table id="mainTable">
   <thead>
     <tr>
-      <th class="th-sort" onclick="sortBy(&#39;odoo&#39;)" title="Ordenar ascendente">ODOO <span class="sort-icon" id="si-odoo">⇅</span></th>
+      <th class="th-sort" onclick="sortBy(&#39;odoo&#39;)" title="Ordenar ascendente">COTIZACIÓN <span class="sort-icon" id="si-odoo">⇅</span></th>
       <th class="th-sort" onclick="sortBy(&#39;factura&#39;)" title="Ordenar por número de factura">FACTURA <span class="sort-icon" id="si-factura">⇅</span></th>
       <th class="th-sort" onclick="sortBy(&#39;cliente&#39;)" title="Orden alfabetico">CLIENTE <span class="sort-icon" id="si-cliente">⇅</span></th>
       <th class="th-sort" onclick="sortBy('ing')" title="Ordenar por fecha de ingreso">ING. <span class="sort-icon" id="si-ing">⇅</span></th>
@@ -5532,14 +5528,36 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      // Guardar archivo como base64 en Firestore — nunca se borra
-      const dataURL = await new Promise((res, rej) => {
-        const reader = new FileReader();
-        reader.onload = ev => res(ev.target.result);
-        reader.onerror = () => rej();
-        reader.readAsDataURL(file);
-      });
-      o.files[key] = { name: file.name, data: dataURL };
+      // Upload to Firebase Storage (no size limits)
+      if (window.storage && firebaseReady) {
+        try {
+          const path = 'orders/' + id + '/' + key + '_' + file.name;
+          const ref = window.storage.ref(path);
+          await ref.put(file);
+          const url = await ref.getDownloadURL();
+          o.files[key] = { name: file.name, url: url, path: path };
+          setConnectionStatus('online');
+        } catch(storageErr) {
+          console.warn('Storage upload failed, using base64:', storageErr);
+          // Fallback to base64 if Storage fails
+          const dataURL = await new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = ev => res(ev.target.result);
+            reader.onerror = () => rej();
+            reader.readAsDataURL(file);
+          });
+          o.files[key] = { name: file.name, data: dataURL };
+        }
+      } else {
+        // No Storage available - use base64
+        const dataURL = await new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = ev => res(ev.target.result);
+          reader.onerror = () => rej();
+          reader.readAsDataURL(file);
+        });
+        o.files[key] = { name: file.name, data: dataURL };
+      }
 
       // Si es la columna FACTURA y es un PDF, extraer número de factura
       if (key === 'factura' && file.type === 'application/pdf') {
@@ -5780,7 +5798,7 @@
     const overlay = document.getElementById('previewOverlay');
     const content = document.getElementById('previewContent');
     const isImg2 = f.url ? /\.(png|jpg|jpeg|gif|webp)/i.test(f.name||'') : (f.data && (f.data.startsWith('data:image') || /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name||'')));
-    const src2 = f.data || f.url;
+    const src2 = f.url || f.data;
     if (!src2) return;
     overlay.classList.add('open');
     if (isImg2) {
@@ -6741,13 +6759,15 @@
 
   function toggleGanancias() {
     gananciaVisible = !gananciaVisible;
+    gananciaSFVisible = gananciaVisible;
     const el = document.getElementById('totalGanancias');
+    const elSF = document.getElementById('totalGananciasSF');
     const btn = document.getElementById('eyeBtn');
     if (gananciaVisible) {
       el.dataset.hidden = '';
+      if (elSF) elSF.dataset.hidden = '';
       btn.textContent = '👁';
       btn.title = 'Ocultar ganancias';
-      // Restore actual value
       updateStats();
     } else {
       el.dataset.hidden = '1';
