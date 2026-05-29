@@ -758,12 +758,8 @@
     <span class="search-icon">🔍</span>
     <input type="text" id="searchInput" placeholder="Buscar cliente, Odoo, factura..." oninput="filterRows()">
   </div>
-  <div class="filter-btns">
 
-    <button class="fbtn" onclick="filterStatus('pagado',this)">💰 PAGADO <span id="cntPag">5</span></button>
-    <button class="fbtn" onclick="filterStatus('parcial',this)">⏳ PARCIAL <span id="cntPar">0</span></button>
-    <button class="fbtn" onclick="filterStatus('pendientes',this)">📋 PENDIENTES <span id="cntPen">37</span></button>
-  </div>
+  <span id="cntPag" style="display:none">0</span><span id="cntPar" style="display:none">0</span><span id="cntPen" style="display:none">0</span>
   <button class="btn-nueva" onclick="openNewOrderModal()">+ NUEVA ORDEN</button>
 </div>
 
