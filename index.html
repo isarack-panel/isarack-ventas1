@@ -16,7 +16,7 @@
     --bg: #1a1a1a;
     --bg2: #222222;
     --bg3: #2a2a2a;
-    --border: #2e2e2e;
+    --border: #2a2a2a;
     --orange: #555;
     --orange2: #666;
     --green: #00c853;
@@ -27,14 +27,14 @@
     --header-h: 60px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #e8e8e8; font-family: 'Barlow', sans-serif; font-size: 12px; color: var(--text); min-height: 100vh; }
+  body { background: #131318; font-family: 'Barlow', sans-serif; font-size: 12px; color: var(--text); min-height: 100vh; }
 
   /* TOP HEADER */
   .top-header {
     background: var(--bg);
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 18px; height: var(--header-h);
-    border-bottom: 2px solid var(--orange);
+    border-bottom: 1px solid #2a2a35;
     
   }
   .logo-wrap { display: flex; align-items: center; gap: 10px; }
@@ -62,7 +62,7 @@
 
   /* SEARCH BAR */
   .search-bar {
-    background: var(--bg2); padding: 10px 18px;
+    background: var(--bg); padding: 8px 18px;
     display: flex; align-items: center; gap: 8px;
     border-bottom: 1px solid var(--border);
     
@@ -80,8 +80,8 @@
   .search-icon { color: var(--text2); font-size: 15px; }
   .filter-btns { display: flex; gap: 6px; }
   .fbtn {
-    padding: 6px 14px; border-radius: 4px; border: 1px solid var(--border);
-    background: var(--bg3); color: var(--text2);
+    padding: 5px 12px; border-radius: 5px; border: none;
+    background: #1e1e28; color: var(--text2);
     font-family: 'Barlow Condensed', sans-serif; font-size: 12px;
     letter-spacing: 1px; cursor: pointer; display: flex; align-items: center; gap: 5px;
     transition: all .2s;
@@ -119,20 +119,20 @@
 
   /* THEAD */
   thead tr {
-    background: var(--bg3); border-bottom: 2px solid var(--border);
+    background: var(--bg); border-bottom: 1px solid #202020;
   }
   thead th {
     font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
     font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
     color: var(--text2); padding: 8px 8px; text-align: center;
-    border-right: 1px solid var(--border); white-space: nowrap;
+    border-right: none; white-space: nowrap;
   }
   thead th:last-child { border-right: none; }
 
   /* FILTER ROW */
   .filter-row td {
     background: #2e2e2e; padding: 4px 6px;
-    border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    border-right: none; border-bottom: 1px solid var(--border);
   }
   .filter-row input, .filter-row select {
     width: 100%; background: #111; border: 1px solid var(--border);
@@ -143,12 +143,12 @@
 
   /* DATA ROWS */
   tbody tr.data-row {
-    background: #f5f5f5; border-bottom: 1px solid #ddd;
+    background: var(--bg2); border-bottom: 1px solid #202020;
     transition: background .15s;
   }
-  tbody tr.data-row:hover { background: #ececec; }
+  tbody tr.data-row:hover { background: #252525; }
   tbody tr.data-row td {
-    padding: 6px 6px; border-right: 1px solid #ddd;
+    padding: 6px 6px; border-right: none;
     text-align: center; color: #222; vertical-align: middle;
   }
   tbody tr.data-row td:last-child { border-right: none; }
@@ -170,11 +170,11 @@
     font-weight: 700; letter-spacing: .8px; transition: all .15s;
     display: inline-flex; align-items: center; gap: 3px;
   }
-  .btn-cotizacion { background: #2a1a10; color: #888; border: 1px solid #3a2a1a; }
-  .btn-cotizacion:hover { border-color: var(--orange); color: var(--orange); }
-  .btn-factura { background: var(--bg3); color: #666; border: 1px solid var(--border); }
+  .btn-cotizacion { background: #1e1e28; color: #666; border: 1px solid #2a2a35; }
+  .btn-cotizacion:hover { color: #e05a2b; border-color: #e05a2b; }
+  .btn-factura { background: #1e1e28; color: #666; border: 1px solid #2a2a35; }
   .btn-factura:hover { background: #555; }
-  .btn-po { background: var(--bg3); color: #666; border: 1px solid var(--border); }
+  .btn-po { background: #1e1e28; color: #666; border: 1px solid #2a2a35; }
   .btn-po:hover { background: #555; }
   .btn-pago { background: #444; color: #fff; }
   .btn-pago:hover { background: #555; }
@@ -369,7 +369,7 @@
   }
   .preview-overlay.open { display: flex; }
   .preview-overlay img { max-width: 92vw; max-height: 90vh; border-radius: 4px; }
-  .preview-overlay iframe { width: 92vw; height: 90vh; border: none; border-radius: 4px; background:#fff; }
+  .preview-overlay iframe { width: 92vw; height: 90vh; border: none; border-radius: 4px; background:var(--bg2); }
   .preview-close {
     position: absolute; top: 16px; right: 24px; font-size: 28px; color: #fff;
     cursor: pointer; background: none; border: none; line-height: 1;
@@ -387,10 +387,10 @@
 
   /* COMPLETED ROW - todas las condiciones cumplidas */
   tbody tr.data-row.row-complete td {
-    background: #d4f5d4 !important;
-    border-bottom-color: #9ed89e !important;
+    background: #0d1f0d !important;
+    border-bottom-color: #1a3a1a !important;
   }
-  tbody tr.data-row.row-complete:hover td { background: #c0edbe !important; }
+  tbody tr.data-row.row-complete:hover td { background: #112211 !important; }
   tbody tr.data-row.row-complete .cell-odoo-num { color: #145214; font-weight: 800; }
   tbody tr.data-row.row-complete .cell-client   { color: #145214; }
   tbody tr.data-row.row-complete .amount-dlls   { color: #145214; }
@@ -471,7 +471,7 @@
     outline: none; transition: border-color .2s;
     line-height: 1.4;
   }
-  .obs-input:focus { border-color: #6b6b6b; background: #fff; }
+  .obs-input:focus { border-color: #6b6b6b; background: var(--bg2); }
   .obs-input::placeholder { color: #aaa; }
 
   /* FACTURA SOLICITADA */
@@ -758,7 +758,6 @@
     <span class="search-icon">🔍</span>
     <input type="text" id="searchInput" placeholder="Buscar cliente, Odoo, factura..." oninput="filterRows()">
   </div>
-
   <span id="cntPag" style="display:none">0</span><span id="cntPar" style="display:none">0</span><span id="cntPen" style="display:none">0</span>
   <button class="btn-nueva" onclick="openNewOrderModal()">+ NUEVA ORDEN</button>
 </div>
@@ -776,10 +775,14 @@
         👁
       </button>
     </span>
-    <span class="stat-val" id="totalGanancias" title="Comisiones pagadas">$2,380.13 MXN</span>
-    <div style="margin-top:3px;">
-      <span id="totalGananciasSF" style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:500;color:#555;letter-spacing:.5px;" title="Comisiones sin factura">s/fac $0.00</span>
-    </div>
+    <span class="stat-val" id="totalGanancias" title="Comisiones pagadas convertidas a MXN usando TC DOF $17.3908">$2,380.13 MXN</span>
+  <div style="padding-left:12px;margin-left:4px;display:flex;flex-direction:column;gap:1px;opacity:0.5;">
+    <span style="font-family:'Barlow Condensed',sans-serif;font-size:8px;letter-spacing:1.5px;color:#888;text-transform:uppercase;display:flex;align-items:center;gap:4px;">
+      s/fac
+      <button id="eyeBtnSF" onclick="toggleGananciasSF()" title="Mostrar/Ocultar sin factura" style="background:none;border:none;cursor:pointer;padding:0;color:#666;font-size:10px;line-height:1;">👁</button>
+    </span>
+    <span id="totalGananciasSF" style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:600;color:#888;letter-spacing:.5px;" title="Comisiones sin factura">$0.00 MXN</span>
+  </div>
   </div>
   <div class="stat-item" style="border-left:1px solid #333;padding-left:16px;margin-left:4px;">
     <span class="stat-label">TC DOF <span id="tcFecha" style="font-size:8px;color:#777;letter-spacing:.5px;">2026-04-24</span></span>
@@ -788,14 +791,15 @@
       <button onclick="editarTC()" title="Editar TC DOF manualmente" style="background:none;border:none;cursor:pointer;color:#555;font-size:12px;padding:0;line-height:1;">✏</button>
     </div>
   </div>
-  <div id="bimestreWrap">
-    <span class="blabel">📅 PERÍODO:</span>
-    <select id="bimestreSel" onchange="cambiarBimestre(this.value)"><option value="ABR-MAY_2026">▶ ABR-MAY</option></select>
-    <button class="btn-bim" onclick="crearBimestre()">+ Nuevo período</button>
-    <button class="btn-bim btn-bim-del" id="btnEliminarBim" onclick="eliminarBimestre()" style="display:none;">🗑 Eliminar</button>
-    <button class="btn-bim" onclick="document.getElementById(&#39;chartModal&#39;).classList.add(&#39;open&#39;);drawChart();">📊 Gráfica</button>
-    <button class="btn-bim" onclick="openVentasAnuales()" style="background:#1a3a5c;">📈 Ventas Bimestrales</button>
-    
+  <div id="bimestreWrap" style="position:relative;display:flex;align-items:center;gap:8px;">
+    <select id="bimestreSel" onchange="cambiarBimestre(this.value)" style="background:#1e1e28;border:none;color:#e0e0e0;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;padding:5px 12px;border-radius:6px;cursor:pointer;"></select>
+    <button id="btnEliminarBim" onclick="eliminarBimestre()" style="display:none;">🗑</button>
+    <button onclick="var m=document.getElementById('periodMenu');m.style.display=m.style.display==='block'?'none':'block'" style="margin-left:4px;background:none;border:none;color:#555;font-size:20px;cursor:pointer;padding:4px 10px;border-radius:6px;letter-spacing:3px;line-height:1;">···</button>
+    <div id="periodMenu" style="display:none;position:absolute;right:0;top:40px;background:#1a1a24;border:1px solid #2a2a35;border-radius:8px;padding:6px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:100;">
+      <button onclick="crearBimestre();document.getElementById('periodMenu').style.display='none'" style="display:block;width:100%;text-align:left;background:none;border:none;color:#888;font-size:12px;padding:8px 12px;border-radius:6px;cursor:pointer;font-family:'Barlow',sans-serif;">＋ Nuevo período</button>
+      <button onclick="document.getElementById('chartModal').classList.add('open');drawChart();document.getElementById('periodMenu').style.display='none'" style="display:block;width:100%;text-align:left;background:none;border:none;color:#888;font-size:12px;padding:8px 12px;border-radius:6px;cursor:pointer;font-family:'Barlow',sans-serif;">📊 Gráfica</button>
+      <button onclick="openVentasAnuales();document.getElementById('periodMenu').style.display='none'" style="display:block;width:100%;text-align:left;background:none;border:none;color:#888;font-size:12px;padding:8px 12px;border-radius:6px;cursor:pointer;font-family:'Barlow',sans-serif;">📈 Ventas Bimestrales</button>
+    </div>
   </div>
   <div class="stat-item" style="margin-left:0;">
     <span class="stat-label">Estado</span>
@@ -810,7 +814,7 @@
 <table id="mainTable">
   <thead>
     <tr>
-      <th class="th-sort" onclick="sortBy(&#39;odoo&#39;)" title="Ordenar ascendente">COTIZACIÓN <span class="sort-icon" id="si-odoo">⇅</span></th>
+      <th class="th-sort" onclick="sortBy(&#39;odoo&#39;)" title="Ordenar ascendente">ODOO <span class="sort-icon" id="si-odoo">⇅</span></th>
       <th class="th-sort" onclick="sortBy(&#39;factura&#39;)" title="Ordenar por número de factura">FACTURA <span class="sort-icon" id="si-factura">⇅</span></th>
       <th class="th-sort" onclick="sortBy(&#39;cliente&#39;)" title="Orden alfabetico">CLIENTE <span class="sort-icon" id="si-cliente">⇅</span></th>
       <th class="th-sort" onclick="sortBy('ing')" title="Ordenar por fecha de ingreso">ING. <span class="sort-icon" id="si-ing">⇅</span></th>
@@ -5772,7 +5776,7 @@
     if (isImg1) {
       content1.innerHTML = `<img src="${src1}" alt="Pago ${idx+1}" style="max-width:92vw;max-height:90vh;border-radius:4px;"/>`;
     } else {
-      content1.innerHTML = `<iframe src="${src1}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
+      content1.innerHTML = `<iframe src="${src1}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:var(--bg2);"></iframe>`;
     }
   }
 
@@ -5800,7 +5804,7 @@
     if (isImg2) {
       content.innerHTML = `<img src="${src2}" alt="preview" style="max-width:92vw;max-height:90vh;border-radius:4px;"/>`;
     } else {
-      content.innerHTML = `<iframe src="${src2}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
+      content.innerHTML = `<iframe src="${src2}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:var(--bg2);"></iframe>`;
     }
   }
 
@@ -6755,15 +6759,13 @@
 
   function toggleGanancias() {
     gananciaVisible = !gananciaVisible;
-    gananciaSFVisible = gananciaVisible;
     const el = document.getElementById('totalGanancias');
-    const elSF = document.getElementById('totalGananciasSF');
     const btn = document.getElementById('eyeBtn');
     if (gananciaVisible) {
       el.dataset.hidden = '';
-      if (elSF) elSF.dataset.hidden = '';
       btn.textContent = '👁';
       btn.title = 'Ocultar ganancias';
+      // Restore actual value
       updateStats();
     } else {
       el.dataset.hidden = '1';
