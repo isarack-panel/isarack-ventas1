@@ -5799,18 +5799,16 @@
     const o = orders.find(x => x.id === id || x.id === Number(id) || String(x.id) === String(id));
     if (!o || !o.files[key]) return;
     const f = o.files[key];
-    // Priorizar base64, luego URL
-    const src = (f.data && f.data.length > 10) ? f.data : (f.url || null);
-    if (!src) { alert('Archivo no disponible'); return; }
-    const isImg = /\.(png|jpg|jpeg|gif|webp)/i.test(f.name||'') || (f.data && f.data.startsWith('data:image'));
-    if (isImg) {
-      // Imagen: abrir en nueva ventana
-      const w = window.open('', '_blank');
-      w.document.write('<body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="' + src + '" style="max-width:100%;max-height:100vh;"/></body>');
+    const overlay = document.getElementById('previewOverlay');
+    const content = document.getElementById('previewContent');
+    const isImg2 = f.url ? /\.(png|jpg|jpeg|gif|webp)/i.test(f.name||'') : (f.data && (f.data.startsWith('data:image') || /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name||'')));
+    const src2 = f.url || f.data;
+    if (!src2) return;
+    overlay.classList.add('open');
+    if (isImg2) {
+      content.innerHTML = `<img src="${src2}" alt="preview" style="max-width:92vw;max-height:90vh;border-radius:4px;"/>`;
     } else {
-      // PDF: abrir en nueva ventana con iframe
-      const w = window.open('', '_blank');
-      w.document.write('<body style="margin:0;padding:0;"><iframe src="' + src + '" style="width:100vw;height:100vh;border:none;"></iframe></body>');
+      content.innerHTML = `<iframe src="${src2}" style="width:92vw;height:90vh;border:none;border-radius:4px;background:#fff;"></iframe>`;
     }
   }
 
@@ -6919,7 +6917,13 @@
     if (!confirm('Crear periodo: ' + nextN + ' ' + nextA + '. Las ordenes sin pagar se copian al nuevo periodo. Las del periodo anterior se conservan. Continuar?')) return;
 
     // Copiar (NO eliminar) ordenes no pagadas al nuevo periodo
-    const noPagadas = orders.filter(o => !(o.fechaPago && o.files && o.files.pago));
+    // Pagada = tiene al menos un pago con 100% o suma de pagos >= 100%
+    const noPagadas = orders.filter(o => {
+      const pagos = o.pagos || [];
+      const totalPct = pagos.reduce((s, p) => s + (parseFloat(p.pct)||0), 0);
+      const tienePagoCompleto = totalPct >= 100 && pagos.some(p => p.fecha && p.file);
+      return !tienePagoCompleto;
+    });
     const nuevas = noPagadas.map(o => {
       // Limpiar files: si un valor es string (ej "recovered"), dejarlo como null en el nuevo período
       const filesLimpios = {};
