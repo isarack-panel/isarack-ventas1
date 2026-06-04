@@ -6917,12 +6917,12 @@
     if (!confirm('Crear periodo: ' + nextN + ' ' + nextA + '. Las ordenes sin pagar se copian al nuevo periodo. Las del periodo anterior se conservan. Continuar?')) return;
 
     // Copiar (NO eliminar) ordenes no pagadas al nuevo periodo
-    // Pagada = tiene al menos un pago con 100% o suma de pagos >= 100%
+    // Pagada = misma lógica que el checklist del sistema
     const noPagadas = orders.filter(o => {
-      const pagos = o.pagos || [];
-      const totalPct = pagos.reduce((s, p) => s + (parseFloat(p.pct)||0), 0);
-      const tienePagoCompleto = totalPct >= 100 && pagos.some(p => p.fecha && p.file);
-      return !tienePagoCompleto;
+      const pgs = o.pagos || [];
+      const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
+      const pagada = (pgs.some(p => p.file || p.fecha) && tot >= 100) || (!!o.fechaPago && pgs.length === 0);
+      return !pagada;
     });
     const nuevas = noPagadas.map(o => {
       // Limpiar files: si un valor es string (ej "recovered"), dejarlo como null en el nuevo período
