@@ -5923,17 +5923,16 @@
     const tcEl = document.getElementById('tipoCambio');
     const tcFechaEl = document.getElementById('tcFecha');
 
-    // ── Fuente 1: exchangerate-api (gratuita, sin CORS) ──────────
+    // ── Fuente 1: /api/tc — Banco de México DOF oficial ─────────
     try {
-      const r = await fetch('https://open.er-api.com/v6/latest/USD');
+      const r = await fetch('/api/tc');
       if (r.ok) {
         const d = await r.json();
-        if (d?.rates?.MXN > 5) {
-          tcDOF = d.rates.MXN;
-          const fecha = new Date(d.time_last_update_utc);
-          tcFechaStr = fecha.toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'});
+        if (d?.val > 5) {
+          tcDOF = d.val;
+          tcFechaStr = d.fecha;
           localStorage.setItem('tcDOF_cache', JSON.stringify({val: tcDOF, fecha: tcFechaStr, ts: Date.now()}));
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC USD/MXN — ExchangeRate API'; }
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF — Banco de México'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats(); return;
         }
@@ -6334,6 +6333,15 @@
           }
           if (!d.pagos) d.pagos = [{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null}];
           migrateOrderPagos(d);
+          // Fusionar archivos de localStorage si existen
+          const lf = localFiles[String(d.id)];
+          if (lf) {
+            Object.keys(lf).forEach(k => {
+              if (lf[k] && (lf[k].data || lf[k].url)) {
+                d.files[k] = lf[k];
+              }
+            });
+          }
           return d;
         });
         // Merge recovered orders — agregar las que no están en Firebase
