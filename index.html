@@ -6318,6 +6318,17 @@
       firestoreResponded = true;
       clearTimeout(timeout);
 
+      // Recuperar archivos de localStorage para fusionar
+      let localFiles = {};
+      try {
+        const localRaw = localStorage.getItem('b_' + (bimestreActivo||'def'));
+        if (localRaw) {
+          JSON.parse(localRaw).forEach(o => {
+            if (o.files) localFiles[String(o.id)] = o.files;
+          });
+        }
+      } catch(e) {}
+
       if (!snapshot.empty) {
         orders = snapshot.docs.map(doc => {
           const d = doc.data();
