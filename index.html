@@ -802,6 +802,7 @@
     <button class="btn-bim" onclick="crearBimestre()">+ Nuevo período</button>
     <button class="btn-bim btn-bim-del" id="btnEliminarBim" onclick="eliminarBimestre()" style="display:none;">🗑 Eliminar</button>
     <button class="btn-bim" onclick="document.getElementById(&#39;chartModal&#39;).classList.add(&#39;open&#39;);drawChart();">📊 Gráfica</button>
+    <button class="btn-bim" onclick="abrirReporte()" style="background:#2a1a08;border:1px solid #f4a035;color:#f4a035;">📋 Reporte</button>
     <button class="btn-bim" onclick="openVentasAnuales()" style="background:#1a3a5c;">📈 Ventas Bimestrales</button>
     
   </div>
@@ -5923,16 +5924,17 @@
     const tcEl = document.getElementById('tipoCambio');
     const tcFechaEl = document.getElementById('tcFecha');
 
-    // ── Fuente 1: /api/tc — Banco de México DOF oficial ─────────
+    // ── Fuente 1: exchangerate-api (gratuita, sin CORS) ──────────
     try {
-      const r = await fetch('/api/tc');
+      const r = await fetch('https://open.er-api.com/v6/latest/USD');
       if (r.ok) {
         const d = await r.json();
-        if (d?.val > 5) {
-          tcDOF = d.val;
-          tcFechaStr = d.fecha;
+        if (d?.rates?.MXN > 5) {
+          tcDOF = d.rates.MXN;
+          const fecha = new Date(d.time_last_update_utc);
+          tcFechaStr = fecha.toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'});
           localStorage.setItem('tcDOF_cache', JSON.stringify({val: tcDOF, fecha: tcFechaStr, ts: Date.now()}));
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF — Banco de México'; }
+          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC USD/MXN — ExchangeRate API'; }
           if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
           updateStats(); return;
         }
@@ -6318,17 +6320,6 @@
       firestoreResponded = true;
       clearTimeout(timeout);
 
-      // Recuperar archivos de localStorage para fusionar
-      let localFiles = {};
-      try {
-        const localRaw = localStorage.getItem('b_' + (bimestreActivo||'def'));
-        if (localRaw) {
-          JSON.parse(localRaw).forEach(o => {
-            if (o.files) localFiles[String(o.id)] = o.files;
-          });
-        }
-      } catch(e) {}
-
       if (!snapshot.empty) {
         orders = snapshot.docs.map(doc => {
           const d = doc.data();
@@ -6344,15 +6335,6 @@
           }
           if (!d.pagos) d.pagos = [{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null}];
           migrateOrderPagos(d);
-          // Fusionar archivos de localStorage si existen
-          const lf = localFiles[String(d.id)];
-          if (lf) {
-            Object.keys(lf).forEach(k => {
-              if (lf[k] && (lf[k].data || lf[k].url)) {
-                d.files[k] = lf[k];
-              }
-            });
-          }
           return d;
         });
         // Merge recovered orders — agregar las que no están en Firebase
@@ -6370,21 +6352,15 @@
         }
         setConnectionStatus('online');
       } else {
-        // Firestore empty — solo migrar si localStorage tiene datos de ESTE periodo
+        // Firestore empty — migrate from localStorage if any
         try {
-          const localKey = 'b_' + (bimestreActivo||'def');
-          const local = localStorage.getItem(localKey);
-          // Verificar que este periodo ya fue inicializado (tiene marca)
-          const iniciado = localStorage.getItem('init_' + (bimestreActivo||'def'));
-          if (local && iniciado) {
+          const local = localStorage.getItem('b_'+(bimestreActivo||'def'));
+          if (local) {
             const localOrders = JSON.parse(local);
             if (localOrders.length > 0) {
               orders = localOrders;
               await saveOrders();
             }
-          } else if (!iniciado) {
-            // Periodo nuevo sin datos — no migrar nada, empezar vacío
-            orders = [];
           }
         } catch(e) {}
         setConnectionStatus('online');
@@ -6679,11 +6655,6 @@
     bimestres.push({ id, nombre: nextN, año: nextA });
     bimestreActivo = id;
     orders = nuevas;
-    // Marcar este periodo como inicializado y guardar en localStorage
-    try {
-      localStorage.setItem('b_' + id, JSON.stringify(nuevas));
-      localStorage.setItem('init_' + id, '1');
-    } catch(e) {}
     saveBimestres(); saveOrders(); renderBimestreSel(); renderOrders();
     alert('Periodo ' + nextN + ' ' + nextA + ' creado con ' + nuevas.length + ' ordenes pendientes.');
   }
@@ -6909,5 +6880,394 @@
   }
 
 </script>
+
+<!-- ═══ MODAL REPORTE COMISIONES ═══ -->
+<div id="reporteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#0f0e0c;z-index:9999;overflow-y:auto;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 40px;background:#2a1a08;border-bottom:2px solid #f4a035;position:sticky;top:0;z-index:10;">
+    <span style="color:#fff;font-weight:700;font-size:1rem;">📋 Reporte de Comisiones — <span style="color:#f4a035;">ABR-MAY 2026</span></span>
+    <button onclick="cerrarReporte()" style="background:none;border:1px solid #555;color:#aaa;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.85rem;">✕ Cerrar</button>
+  </div>
+  <style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f0e0c; color: #e8e0d0; }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(135deg, #2a1a08, #1a1208);
+    padding: 20px 40px;
+    border-bottom: 3px solid #f4a035;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 1.4rem; color: #fff; letter-spacing: 1px; }
+  header h1 span { color: #f4a035; }
+  header .meta { text-align: right; }
+  header .periodo { font-size: 1rem; font-weight: 700; color: #f4a035; }
+  header .fecha { font-size: 0.75rem; color: #8a7a60; margin-top: 2px; }
+
+  /* ── RESUMEN 3 COLUMNAS ── */
+  .resumen {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.4fr;
+    gap: 14px;
+    padding: 20px 40px;
+    background: #0f0e0c;
+  }
+  .resumen-col { display: flex; flex-direction: column; gap: 12px; }
+  .resumen-bloque {
+    background: #1c1a16;
+    border-radius: 10px;
+    padding: 13px 18px;
+    border: 1px solid #3a3020;
+    flex: 1;
+  }
+  .resumen-bloque .rb-label {
+    font-size: 0.65rem; color: #7a6a50;
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;
+  }
+  .resumen-bloque .rb-main { font-size: 1.15rem; font-weight: 700; }
+  .resumen-bloque .rb-sub { font-size: 0.68rem; color: #7a6a50; margin-top: 4px; }
+
+  .resumen-gran {
+    background: #1c1a16;
+    border-radius: 10px;
+    padding: 18px 22px;
+    border: 1.5px solid rgba(244,160,53,0.4);
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .resumen-gran::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, #f4a035, #e85d04);
+  }
+  .resumen-gran .rb-label { font-size: 0.65rem; color: #7a6a50; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .resumen-gran .rb-formula { font-size: 0.75rem; color: #8a7a60; margin-bottom: 10px; line-height: 1.7; }
+  .resumen-gran .rb-total { font-size: 1.9rem; font-weight: 800; color: #4caf50; line-height: 1; }
+  .resumen-gran .rb-sub { font-size: 0.68rem; color: #7a6a50; margin-top: 8px; }
+
+  .green { color: #4caf50; }
+  .orange { color: #f4a035; }
+  .white { color: #e8e0d0; }
+
+  /* ── TABLAS ── */
+  .section { padding: 0 40px 32px; }
+  .section-title {
+    font-size: 0.72rem; color: #7a6a50;
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-title::after { content:''; flex:1; height:1px; background:#2e2618; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  thead tr { background: #1c1a16; }
+  th {
+    padding: 11px 12px; text-align: left;
+    color: #7a6a50; font-size: 0.68rem;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid #2e2618;
+  }
+  td { padding: 10px 12px; border-bottom: 1px solid #1c1a16; }
+  tr:hover td { background: #1c1a16; }
+
+  .badge { display:inline-block; padding:3px 10px; border-radius:10px; font-size:0.72rem; font-weight:600; }
+  .badge-green { background:rgba(76,175,80,0.1); color:#4caf50; border:1px solid rgba(76,175,80,0.25); }
+  .badge-gray { background:rgba(255,255,255,0.04); color:#666; border:1px solid #2e2618; }
+  .badge-orange { background:rgba(244,160,53,0.1); color:#f4a035; border:1px solid rgba(244,160,53,0.25); }
+
+  .total-row td { background:#0d180d; color:#4caf50; font-weight:700; border-top:1px solid rgba(76,175,80,0.2); }
+  .loading { text-align:center; padding:60px; color:#7a6a50; }
+
+  /* ── PRINT ── */
+  @media print {
+    @page { size: letter portrait; margin: 1.5cm 1.8cm; }
+    body { background: #fff !important; color: #1a1a1a !important; font-size: 9.5px; }
+    
+    header {
+      background: #2a1a08 !important;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      padding: 14px 24px; border-radius: 0;
+      border-bottom: 2px solid #f4a035 !important;
+      margin-bottom: 16px;
+    }
+    header h1 { font-size: 1rem; color: #fff !important; }
+    header .periodo { color: #f4a035 !important; font-size: 0.9rem; }
+    header .fecha { color: #ccc !important; }
+
+    .resumen {
+      padding: 0 0 16px 0; gap: 12px;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    .resumen-bloque {
+      background: #faf8f4 !important; border: 1px solid #e0d8c8 !important;
+      border-radius: 8px; padding: 12px 16px;
+    }
+    .resumen-bloque .rb-label { color: #9a8a70 !important; }
+    .resumen-bloque .rb-main { color: #1a1a1a !important; font-size: 1.3rem; }
+    .resumen-bloque .rb-main.green { color: #2e7d32 !important; }
+    .resumen-bloque .rb-main.orange { color: #e65100 !important; }
+    .resumen-bloque .rb-sub { color: #9a8a70 !important; }
+
+    .resumen-gran {
+      background: #f0faf0 !important;
+      border: 1.5px solid #4caf50 !important;
+      border-radius: 8px; padding: 16px 20px;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    .resumen-gran::before { background: #4caf50 !important; }
+    .resumen-gran .rb-label { color: #9a8a70 !important; }
+    .resumen-gran .rb-formula { color: #666 !important; }
+    .resumen-gran .rb-total { color: #2e7d32 !important; font-size: 2rem; }
+    .resumen-gran .rb-sub { color: #9a8a70 !important; }
+
+    .section { padding: 0 0 16px 0; }
+    .section-title { color: #9a8a70 !important; font-size: 0.65rem; }
+    .section-title::after { background: #e0d8c8 !important; }
+
+    table { font-size: 8.5px; }
+    th { padding: 7px 8px; color: #9a8a70 !important; border-bottom: 1px solid #e0d8c8 !important; }
+    td { padding: 7px 8px; border-bottom: 1px solid #f0ece4 !important; color: #1a1a1a !important; }
+    thead tr { background: #f5f0e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    tr:hover td { background: transparent !important; }
+
+    .badge { border: 1px solid #ccc !important; color: #333 !important; background: #f5f5f5 !important; }
+    .badge-green { border-color: #4caf50 !important; color: #2e7d32 !important; background: #f0faf0 !important; }
+    .badge-orange { border-color: #e65100 !important; color: #e65100 !important; background: #fff8f0 !important; }
+
+    .total-row td {
+      background: #e8f5e9 !important; color: #2e7d32 !important;
+      border-top: 1px solid #4caf50 !important;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    .btn-print { display: none !important; }
+  }
+
+  .btn-print {
+    position: fixed; bottom: 24px; right: 24px;
+    background: #f4a035; color: #fff; border: none;
+    padding: 12px 24px; border-radius: 8px;
+    font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(244,160,53,0.3);
+    font-family: inherit; letter-spacing: 0.5px;
+    transition: background 0.2s;
+  }
+  .btn-print:hover { background: #d4850a; }
+  @media print { .btn-print { display: none; } }
+</style>
+  <div id="reporteApp"><div class="loading">⏳ Cargando datos...</div></div>
+  <button onclick="window.print()" style="position:fixed;bottom:24px;right:24px;background:#f4a035;color:#fff;border:none;padding:10px 22px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(244,160,53,0.3);font-family:inherit;">🖨️ Imprimir</button>
+</div>
+
+<script>
+function abrirReporte() {
+  document.getElementById('reporteModal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  if (!window._reporteLoaded) { window._reporteLoaded = true; renderReporte(); }
+}
+function cerrarReporte() {
+  document.getElementById('reporteModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+/* firebaseConfig ya definido */
+
+
+
+
+
+let tcFecha = '04/06/2026';
+
+async function fetchTC() {
+  try {
+    const r = await fetch('/api/tc');
+    if (r.ok) {
+      const d = await r.json();
+      if (d?.val > 5) { tcDOF = d.val; tcFecha = d.fecha; }
+    }
+  } catch(e) {}
+}
+
+function isPagada(o) {
+  const pgs = Array.isArray(o.pagos) ? o.pagos : (o.pagos ? Object.values(o.pagos) : []);
+  const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
+  const pagadaNuevo = tot >= 100 && pgs.some(p => p.file);
+  const pagadaViejo = !!(o.fechaPago && o.files && o.files.pago);
+  return pagadaNuevo || pagadaViejo;
+}
+
+function fmt(n) {
+  return Number(n||0).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+async function renderReporte() {
+  await fetchTC();
+  
+  const snap = await db.collection(getCollection()).get();
+  const orders = snap.docs.map(d => d.data());
+  
+  const pagadas = orders.filter(o => isPagada(o));
+  const pendientes = orders.filter(o => !isPagada(o));
+  
+  let totalPesosMXN = 0;
+  let totalDlls = 0;
+  let totalComMXN = 0;
+  let totalComDlls = 0;
+
+  const rows = pagadas.map(o => {
+    const pct = parseFloat(o.pct || o.anticipoPct || 2.20);
+    const montoMXN = parseFloat(o.monto || o.pesos || 0);
+    const montoDlls = parseFloat(o.dlls || 0);
+    
+    // Comisión
+    const comMXN = montoMXN * (pct / 100);
+    const comDlls = montoDlls > 0 ? montoDlls * (pct / 100) : comMXN / tcDOF;
+    const comDllsEnPesos = comDlls * tcDOF;
+
+    totalPesosMXN += montoMXN;
+    totalDlls += montoDlls;
+    totalComMXN += comMXN;
+    totalComDlls += comDlls;
+
+    return `
+    <tr>
+      <td><strong>${o.odoo || '—'}</strong></td>
+      <td>${o.factura || '<span style="color:#888">s/fac</span>'}</td>
+      <td>${o.cliente || '—'}</td>
+      <td style="text-align:right">$${fmt(montoMXN)}</td>
+      <td style="text-align:center"><span class="badge badge-orange">${pct.toFixed(2)}%</span></td>
+      <td style="text-align:right;color:#4caf50"><strong>$${fmt(comDlls)} USD</strong></td>
+      <td style="text-align:right;color:#4caf50"><strong>$${fmt(comMXN)} MXN</strong></td>
+      <td style="text-align:right;color:#fff">$${fmt(tcDOF)}</td>
+      <td style="text-align:right;color:#4caf50"><strong>$${fmt(comDllsEnPesos)} MXN</strong></td>
+      <td><span class="badge badge-green">✓ Pagado</span></td>
+    </tr>`;
+  }).join('');
+
+  const pendientesRows = pendientes.map(o => {
+    const pct = parseFloat(o.pct || o.anticipoPct || 2.20);
+    const montoMXN = parseFloat(o.monto || o.pesos || 0);
+    const montoDlls = parseFloat(o.dlls || 0);
+    const comMXN = montoMXN * (pct / 100);
+    const comDlls = montoDlls > 0 ? montoDlls * (pct / 100) : comMXN / tcDOF;
+    const comDllsEnPesos = comDlls * tcDOF;
+
+    return `
+    <tr>
+      <td><strong>${o.odoo || '—'}</strong></td>
+      <td>${o.factura || '<span style="color:#888">s/fac</span>'}</td>
+      <td>${o.cliente || '—'}</td>
+      <td style="text-align:right">$${fmt(montoMXN)}</td>
+      <td style="text-align:center"><span class="badge badge-orange">${pct.toFixed(2)}%</span></td>
+      <td style="text-align:right;color:#888">$${fmt(comDlls)} USD</td>
+      <td style="text-align:right;color:#888">$${fmt(comMXN)} MXN</td>
+      <td style="text-align:right;color:#fff">$${fmt(tcDOF)}</td>
+      <td style="text-align:right;color:#888">$${fmt(comDllsEnPesos)} MXN</td>
+      <td><span class="badge badge-gray">Pendiente</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('reporteApp').innerHTML = `
+    <div class="resumen">
+      <!-- COL 1: Ventas -->
+      <div class="resumen-col">
+        <div class="resumen-bloque">
+          <div class="rb-label">Ventas en Dólares</div>
+          <div class="rb-main blue">$${fmt(totalDlls)} USD</div>
+          <div class="rb-sub">TC DOF: $${fmt(tcDOF)} · ${tcFecha}</div>
+        </div>
+        <div class="resumen-bloque">
+          <div class="rb-label">Ventas en Pesos</div>
+          <div class="rb-main white">$${fmt(totalPesosMXN)} MXN</div>
+          <div class="rb-sub">${pagadas.length} pagados · ${pendientes.length} pendientes</div>
+        </div>
+      </div>
+      <!-- COL 2: Comisiones -->
+      <div class="resumen-col">
+        <div class="resumen-bloque">
+          <div class="rb-label">Comisiones Dólares</div>
+          <div class="rb-main green">$${fmt(totalComDlls)} USD</div>
+          <div class="rb-sub">Solo pedidos pagados</div>
+        </div>
+        <div class="resumen-bloque">
+          <div class="rb-label">Comisiones Pesos</div>
+          <div class="rb-main green">$${fmt(totalComMXN)} MXN</div>
+          <div class="rb-sub">Solo pedidos pagados</div>
+        </div>
+      </div>
+      <!-- COL 3: Gran Total -->
+      <div class="resumen-gran">
+        <div class="rb-label">Gran Total de Comisiones</div>
+        <div class="rb-formula">
+          Comisiones USD × TC DOF<br>
+          + Comisiones MXN
+        </div>
+        <div class="rb-total">$${fmt((totalComDlls * tcDOF) + totalComMXN)}</div>
+        <div class="rb-sub">MXN · Total a pagar al vendedor</div>
+      </div>
+    </div>
+
+
+    <div class="section">
+      <h2>✅ Comisiones Pagadas (${pagadas.length} órdenes)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Pedido</th>
+            <th>Factura</th>
+            <th>Cliente</th>
+            <th style="text-align:right">Monto Pedido</th>
+            <th style="text-align:center">% Comisión</th>
+            <th style="text-align:right">Comisión USD</th>
+            <th style="text-align:right">Comisión MXN</th>
+            <th style="text-align:right">TC DOF</th>
+            <th style="text-align:right">Total a Pagar</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+          <tr class="total-row">
+            <td colspan="3"><strong>TOTAL COMISIONES PAGADAS</strong></td>
+            <td style="text-align:right">$${fmt(totalPesosMXN)}</td>
+            <td></td>
+            <td style="text-align:right">$${fmt(totalComDlls)} USD</td>
+            <td style="text-align:right">$${fmt(totalComMXN)} MXN</td>
+            <td></td>
+            <td style="text-align:right">$${fmt(totalComMXN)} MXN</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>⏳ Pendientes de Cobro (${pendientes.length} órdenes)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Pedido</th>
+            <th>Factura</th>
+            <th>Cliente</th>
+            <th style="text-align:right">Monto Pedido</th>
+            <th style="text-align:center">% Comisión</th>
+            <th style="text-align:right">Comisión USD</th>
+            <th style="text-align:right">Comisión MXN</th>
+            <th style="text-align:right">TC DOF</th>
+            <th style="text-align:right">Total a Pagar</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>${pendientesRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+renderReporte().catch(e => {
+  document.getElementById('reporteApp').innerHTML = `<div class="loading" style="color:#f4a035">❌ Error: ${e.message}</div>`;
+});
+
+</script>
+
 </body>
 </html>
