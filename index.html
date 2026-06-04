@@ -4951,7 +4951,7 @@
       id, odoo, facturaNum, cliente, dlls, pesos,
       ing: todayISO(),
       pct: window._pendingPctSugerido || 2.20, pctCustom: null,
-      fechaPago: '', status: 'En Proceso', observaciones: '', facturaSolicitada: false, anticipoPct: 100,
+      fechaPago: '', status: 'En Proceso', pub: 'No Publicado', observaciones: '', facturaSolicitada: false, anticipoPct: 100,
       pagos: [{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null},{pct:0,fecha:'',file:null}],
       files: { cotizacion: window._pendingCotPdf || null, factura: null, po: null, pago: null, hoja: null, foto: null }
     };
@@ -5001,7 +5001,7 @@
       (o.files.cliente || o.files.po) &&                            // 3. CLIENTE (PO): PDF o imagen
       anticipoPctVal >= 100 && o.fechaPago && o.files.pago &&        // 4. 100% pago + PDF + fecha
       o.files.hoja &&                                                // 5. HOJA ENTREGA: PDF/foto
-      o.files.foto &&                                                // 6. EVIDENCIA: foto
+      o.files.foto                                                    // 6. EVIDENCIA: foto
     );
     tr.className = 'data-row' + (isComplete ? ' row-complete' : '');
     tr.dataset.id = o.id;
@@ -5151,7 +5151,7 @@
           return '';
         })() : ''}
       </td>
-         <!-- OBSERVACIONES -->
+      <!-- OBSERVACIONES -->
       <td>
         <textarea
           class="obs-input"
@@ -6627,13 +6627,7 @@
     if (!confirm('Crear periodo: ' + nextN + ' ' + nextA + '. Las ordenes sin pagar se copian al nuevo periodo. Las del periodo anterior se conservan. Continuar?')) return;
 
     // Copiar (NO eliminar) ordenes no pagadas al nuevo periodo
-    // Pagada = misma lógica que el checklist del sistema
-    const noPagadas = orders.filter(o => {
-      const pgs = o.pagos || [];
-      const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
-      const pagada = (pgs.some(p => p.file || p.fecha) && tot >= 100) || (!!o.fechaPago && pgs.length === 0);
-      return !pagada;
-    });
+    const noPagadas = orders.filter(o => !(o.fechaPago && o.files && o.files.pago));
     const nuevas = noPagadas.map(o => {
       // Limpiar files: si un valor es string (ej "recovered"), dejarlo como null en el nuevo período
       const filesLimpios = {};
@@ -6655,15 +6649,7 @@
     bimestres.push({ id, nombre: nextN, año: nextA });
     bimestreActivo = id;
     orders = nuevas;
-    // Guardar en localStorage PRIMERO antes de cualquier cosa
-    try {
-      localStorage.setItem('b_' + id, JSON.stringify(nuevas));
-    } catch(e) {}
-    saveBimestres();
-    renderBimestreSel();
-    // Guardar en Firestore y esperar antes de renderizar
-    await _saveOrdersAsync();
-    renderOrders();
+    saveBimestres(); saveOrders(); renderBimestreSel(); renderOrders();
     alert('Periodo ' + nextN + ' ' + nextA + ' creado con ' + nuevas.length + ' ordenes pendientes.');
   }
 
