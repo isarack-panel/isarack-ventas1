@@ -6627,7 +6627,12 @@
     if (!confirm('Crear periodo: ' + nextN + ' ' + nextA + '. Las ordenes sin pagar se copian al nuevo periodo. Las del periodo anterior se conservan. Continuar?')) return;
 
     // Copiar (NO eliminar) ordenes no pagadas al nuevo periodo
-    const noPagadas = orders.filter(o => !(o.fechaPago && o.files && o.files.pago));
+    const noPagadas = orders.filter(o => {
+      const pgs = o.pagos || [];
+      const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
+      const pagada = tot >= 100 && pgs.some(p => p.file && (p.file.url || p.file.data || p.file.name));
+      return !pagada;
+    });
     const nuevas = noPagadas.map(o => {
       // Limpiar files: si un valor es string (ej "recovered"), dejarlo como null en el nuevo período
       const filesLimpios = {};
