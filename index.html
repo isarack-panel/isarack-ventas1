@@ -6268,7 +6268,7 @@
     }
   }
 
-  function deleteOrderFromFirestore(id) {
+  async function deleteOrderFromFirestore(id) {
     if (!firebaseReady || !db) return;
     try {
       await db.collection(getCollection()).doc(String(id)).delete();
@@ -6320,6 +6320,24 @@
       clearTimeout(timeout);
 
       if (!snapshot.empty) {
+        // Auto-sync: si localStorage tiene más órdenes, subir las faltantes a Firestore
+        try {
+          const localKey = 'b_' + (bimestreActivo||'def');
+          const localRaw = localStorage.getItem(localKey);
+          if (localRaw) {
+            const localOrders = JSON.parse(localRaw);
+            const fsIds = new Set(snapshot.docs.map(d => String(d.id)));
+            const missing = localOrders.filter(o => !fsIds.has(String(o.id)));
+            if (missing.length > 0 && firebaseReady && db) {
+              const b = db.batch();
+              missing.forEach(o => {
+                const c = {...o}; delete c.files;
+                b.set(db.collection(getCollection()).doc(String(o.id)), c);
+              });
+              b.commit().catch(e => console.warn('auto-sync err:', e));
+            }
+          }
+        } catch(e) {}
         orders = snapshot.docs.map(doc => {
           const d = doc.data();
           if (!d.files) d.files = {};
