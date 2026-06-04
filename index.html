@@ -5991,8 +5991,8 @@
 
       const pct = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : o.pct;
       let comMXN = 0;
-      // USD: usar TC si disponible, si offline usar fallback 17.2945
-      const tcUsado = (tc > 0) ? tc : 17.2945;
+      // USD: usar TC si disponible, si offline usar fallback 17.24
+      const tcUsado = (tc > 0) ? tc : 17.2400;
       if (o.dlls  > 0) comMXN += o.dlls  * (pct/100) * tcUsado;
       if (o.pesos > 0) comMXN += o.pesos * (pct/100);
       if (o.sinFactura) {
@@ -6564,28 +6564,22 @@
   }
 
   function editarTC() {
-    const actual = tcDOF || 17.2520;
-    const nuevo = prompt('Ingresa el TC DOF oficial (dof.gob.mx hoy):', actual.toFixed(4));
+    const actual = tcDOF || 17.2945;
+    const nuevo = prompt('Ingresa el TC DOF (ej: 17.2945):', actual.toFixed(4));
     if (!nuevo) return;
     const val = parseFloat(nuevo.replace(',','.'));
     if (isNaN(val) || val < 5) return;
     tcDOF = val;
+    tcManual = true;
+    localStorage.setItem('tcManual', val);
     const today = new Date();
-    tcFechaStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+    tcFecha = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
     const tcEl = document.getElementById('tipoCambio');
     const tcFechaEl = document.getElementById('tcFecha');
-    if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC DOF ingresado manualmente — ' + tcFechaStr; }
-    if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-    // Guardar en localStorage para persistir entre sesiones
-    localStorage.setItem('tcDOF_manual', JSON.stringify({ val: tcDOF, fecha: tcFechaStr }));
-    // Guardar en Firebase si está disponible
-    if (window.db && firebaseReady) {
-      try {
-        window.db.ref('config/tcDOF').set({ val: tcDOF, fecha: tcFechaStr });
-      } catch(e) {}
-    }
+    if (tcEl) tcEl.textContent = '$' + val.toFixed(4) + ' ✎';
+    if (tcFechaEl) tcFechaEl.textContent = tcFecha;
     updateStats();
-  }
+}
 
   // Cargar TC guardado manualmente si existe y es de hoy
   function loadTCManual() {
@@ -7078,8 +7072,19 @@ function cerrarReporte() {
 
 
 let tcFecha = '04/06/2026';
+// Restaurar TC manual si el usuario lo fijó antes
+(function() {
+  const saved = localStorage.getItem('tcManual');
+  if (saved && parseFloat(saved) > 5) {
+    tcDOF = parseFloat(saved);
+    tcManual = true;
+  }
+})();
+
+let tcManual = false;
 
 async function fetchTC() {
+  if (tcManual) return; // usuario lo fijó manualmente, no sobreescribir
   try {
     const r = await fetch('/api/tc');
     if (r.ok) {
@@ -7109,7 +7114,7 @@ async function renderReporte() {
 
   // ── Misma lógica que updateStats ──
   const tc = tcDOF || 0;
-  const tcUsado = tc > 0 ? tc : 17.2945;
+  const tcUsado = tc > 0 ? tc : 17.2400;
 
   function calcIsPagado(o) {
     const pagos = o.pagos || [];
