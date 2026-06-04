@@ -6945,7 +6945,15 @@
     bimestres.push({ id, nombre: nextN, año: nextA });
     bimestreActivo = id;
     orders = nuevas;
-    saveBimestres(); saveOrders(); renderBimestreSel(); renderOrders();
+    // Guardar en localStorage PRIMERO antes de cualquier cosa
+    try {
+      localStorage.setItem('b_' + id, JSON.stringify(nuevas));
+    } catch(e) {}
+    saveBimestres();
+    renderBimestreSel();
+    // Guardar en Firestore y esperar antes de renderizar
+    await _saveOrdersAsync();
+    renderOrders();
     alert('Periodo ' + nextN + ' ' + nextA + ' creado con ' + nuevas.length + ' ordenes pendientes.');
   }
 
