@@ -6320,24 +6320,6 @@
       clearTimeout(timeout);
 
       if (!snapshot.empty) {
-        // Auto-sync: si localStorage tiene más órdenes, subir las faltantes a Firestore
-        try {
-          const localKey = 'b_' + (bimestreActivo||'def');
-          const localRaw = localStorage.getItem(localKey);
-          if (localRaw) {
-            const localOrders = JSON.parse(localRaw);
-            const fsIds = new Set(snapshot.docs.map(d => String(d.id)));
-            const missing = localOrders.filter(o => !fsIds.has(String(o.id)));
-            if (missing.length > 0 && firebaseReady && db) {
-              const b = db.batch();
-              missing.forEach(o => {
-                const c = {...o}; delete c.files;
-                b.set(db.collection(getCollection()).doc(String(o.id)), c);
-              });
-              b.commit().catch(e => console.warn('auto-sync err:', e));
-            }
-          }
-        } catch(e) {}
         orders = snapshot.docs.map(doc => {
           const d = doc.data();
           if (!d.files) d.files = {};
@@ -6369,15 +6351,21 @@
         }
         setConnectionStatus('online');
       } else {
-        // Firestore empty — migrate from localStorage if any
+        // Firestore empty — solo migrar si localStorage tiene datos de ESTE periodo
         try {
-          const local = localStorage.getItem('b_'+(bimestreActivo||'def'));
-          if (local) {
+          const localKey = 'b_' + (bimestreActivo||'def');
+          const local = localStorage.getItem(localKey);
+          // Verificar que este periodo ya fue inicializado (tiene marca)
+          const iniciado = localStorage.getItem('init_' + (bimestreActivo||'def'));
+          if (local && iniciado) {
             const localOrders = JSON.parse(local);
             if (localOrders.length > 0) {
               orders = localOrders;
               await saveOrders();
             }
+          } else if (!iniciado) {
+            // Periodo nuevo sin datos — no migrar nada, empezar vacío
+            orders = [];
           }
         } catch(e) {}
         setConnectionStatus('online');
@@ -6672,6 +6660,11 @@
     bimestres.push({ id, nombre: nextN, año: nextA });
     bimestreActivo = id;
     orders = nuevas;
+    // Marcar este periodo como inicializado y guardar en localStorage
+    try {
+      localStorage.setItem('b_' + id, JSON.stringify(nuevas));
+      localStorage.setItem('init_' + id, '1');
+    } catch(e) {}
     saveBimestres(); saveOrders(); renderBimestreSel(); renderOrders();
     alert('Periodo ' + nextN + ' ' + nextA + ' creado con ' + nuevas.length + ' ordenes pendientes.');
   }
