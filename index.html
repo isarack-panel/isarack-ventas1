@@ -6268,7 +6268,7 @@
     }
   }
 
-  async function deleteOrderFromFirestore(id) {
+  async async function deleteOrderFromFirestore(id) {
     if (!firebaseReady || !db) return;
     try {
       await db.collection(getCollection()).doc(String(id)).delete();
@@ -6351,12 +6351,14 @@
         }
         setConnectionStatus('online');
       } else {
-        // Firestore empty — migrate from localStorage if any
+        // Firestore empty — only migrate from localStorage if it belongs to this exact period
         try {
           const local = localStorage.getItem('b_'+(bimestreActivo||'def'));
           if (local) {
             const localOrders = JSON.parse(local);
-            if (localOrders.length > 0) {
+            // Only migrate if ALL orders belong to this period (not a different one)
+            const allMatch = localOrders.every(o => !o._periodo || o._periodo === bimestreActivo);
+            if (localOrders.length > 0 && allMatch) {
               orders = localOrders;
               await saveOrders();
             }
@@ -6628,12 +6630,17 @@
 
     // Copiar (NO eliminar) ordenes no pagadas al nuevo periodo
     const noPagadas = orders.filter(o => {
+      // Caso 1: sistema nuevo - pagos array con porcentaje y archivo
       const pgs = o.pagos || [];
       const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
-      const pagada = tot >= 100 && pgs.some(p => p.file && (p.file.url || p.file.data || p.file.name));
-      return !pagada;
+      const pagadaNuevo = tot >= 100 && pgs.some(p => p.file && (p.file.url || p.file.data || p.file.name));
+      // Caso 2: sistema viejo - fechaPago + archivo pago
+      const pagadaViejo = !!(o.fechaPago && o.files && o.files.pago && (o.files.pago.url || o.files.pago.data || o.files.pago.name));
+      return !pagadaNuevo && !pagadaViejo;
     });
     const nuevas = noPagadas.map(o => {
+      // Marcar con el periodo para evitar migración cruzada
+      o._periodo = id;
       // Limpiar files: si un valor es string (ej "recovered"), dejarlo como null en el nuevo período
       const filesLimpios = {};
       Object.keys(o.files || {}).forEach(k => {
@@ -6654,7 +6661,25 @@
     bimestres.push({ id, nombre: nextN, año: nextA });
     bimestreActivo = id;
     orders = nuevas;
-    saveBimestres(); saveOrders(); renderBimestreSel(); renderOrders();
+    // Guardar en localStorage INMEDIATAMENTE con el id correcto
+    try { localStorage.setItem('b_' + id, JSON.stringify(nuevas)); } catch(e) {}
+    saveBimestres();
+    renderBimestreSel();
+    // Subir a Firestore la coleccion nueva ANTES de que el listener la sobreescriba
+    if (firebaseReady && db) {
+      try {
+        const col = 'orders_' + id.replace(/[^a-zA-Z0-9]/g,'_');
+        const batch = db.batch();
+        nuevas.forEach(o => {
+          const clean = {...o};
+          delete clean.files;
+          batch.set(db.collection(col).doc(String(o.id)), clean);
+        });
+        await batch.commit();
+      } catch(e) { console.warn('Error subiendo nuevo periodo:', e); }
+    }
+    orders = nuevas;
+    renderOrders();
     alert('Periodo ' + nextN + ' ' + nextA + ' creado con ' + nuevas.length + ' ordenes pendientes.');
   }
 
