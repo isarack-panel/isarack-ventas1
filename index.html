@@ -792,7 +792,7 @@
   <div class="stat-item" style="border-left:1px solid #333;padding-left:16px;margin-left:4px;">
     <span class="stat-label">TC DOF <span id="tcFecha" style="font-size:8px;color:#777;letter-spacing:.5px;">2026-04-24</span></span>
     <div style="display:flex;align-items:center;gap:5px;">
-      <span class="stat-val white" id="tipoCambio" style="font-size:15px;letter-spacing:.5px;" title="Clic en ✏ para editar manualmente">$17.3908</span>
+      <span class="stat-val white" id="tipoCambio" style="font-size:15px;letter-spacing:.5px;" title="Clic en ✏ para editar manualmente">—</span>
       <button onclick="editarTC()" title="Editar TC DOF manualmente" style="background:none;border:none;cursor:pointer;color:#555;font-size:12px;padding:0;line-height:1;">✏</button>
     </div>
   </div>
@@ -5708,7 +5708,8 @@
 
   // ── TIPO DE CAMBIO DOF ───────────────────────────────────────
   // TC DOF — siempre jalar de /api/tc, nunca usar caché viejo
-  let tcDOF = 17.3213;
+  let tcDOF = 0; // manual
+let _unused = 17.3213;
   let tcFechaStr = '';
   localStorage.removeItem('tcDOF_manual'); // limpiar caché viejo
 
@@ -6564,11 +6565,11 @@
   }
 
   function editarTC() {
-    const actual = tcDOF || 17.2945;
-    const nuevo = prompt('Ingresa el TC DOF (ej: 17.2945):', actual.toFixed(4));
+    const actual = tcDOF > 0 ? tcDOF.toFixed(4) : '';
+    const nuevo = prompt('Ingresa el TC DOF del día (ej: 17.2945):', actual);
     if (!nuevo) return;
     const val = parseFloat(nuevo.replace(',','.'));
-    if (isNaN(val) || val < 5) return;
+    if (isNaN(val) || val < 5) { alert('Valor inválido'); return; }
     tcDOF = val;
     tcManual = true;
     localStorage.setItem('tcManual', val);
@@ -6576,7 +6577,7 @@
     tcFecha = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
     const tcEl = document.getElementById('tipoCambio');
     const tcFechaEl = document.getElementById('tcFecha');
-    if (tcEl) tcEl.textContent = '$' + val.toFixed(4) + ' ✎';
+    if (tcEl) tcEl.textContent = '$' + val.toFixed(4);
     if (tcFechaEl) tcFechaEl.textContent = tcFecha;
     updateStats();
 }
@@ -7071,7 +7072,7 @@ function cerrarReporte() {
 
 
 
-let tcFecha = '04/06/2026';
+let tcFecha = '';
 // Restaurar TC manual si el usuario lo fijó antes
 (function() {
   const saved = localStorage.getItem('tcManual');
@@ -7083,16 +7084,7 @@ let tcFecha = '04/06/2026';
 
 let tcManual = false;
 
-async function fetchTC() {
-  if (tcManual) return; // usuario lo fijó manualmente, no sobreescribir
-  try {
-    const r = await fetch('/api/tc');
-    if (r.ok) {
-      const d = await r.json();
-      if (d?.val > 5) { tcDOF = d.val; tcFecha = d.fecha; }
-    }
-  } catch(e) {}
-}
+async function fetchTC() { /* TC manual - no auto */ }
 
 function isPagada(o) {
   const pgs = Array.isArray(o.pagos) ? o.pagos : (o.pagos ? Object.values(o.pagos) : []);
