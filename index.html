@@ -7064,7 +7064,7 @@
 function abrirReporte() {
   document.getElementById('reporteModal').style.display = 'block';
   document.body.style.overflow = 'hidden';
-  if (!window._reporteLoaded) { window._reporteLoaded = true; renderReporte(); }
+  renderReporte().catch(e => { document.getElementById('reporteApp').innerHTML = '<div style="text-align:center;padding:40px;color:#f4a035">❌ Error cargando reporte: ' + e.message + '</div>'; });
 }
 function cerrarReporte() {
   document.getElementById('reporteModal').style.display = 'none';
@@ -7102,167 +7102,164 @@ function fmt(n) {
 }
 
 async function renderReporte() {
-  await fetchTC();
+  try {
+    await fetchTC();
+  } catch(e) {}
 
   const snap = await db.collection(getCollection()).get();
   const allOrders = snap.docs.map(d => d.data());
 
-  // ── Misma lógica que updateStats ──
   const tc = tcDOF || 0;
   const tcUsado = tc > 0 ? tc : 17.2400;
 
   function calcIsPagado(o) {
-    const pagos = o.pagos || [];
+    const pagos = Array.isArray(o.pagos) ? o.pagos : [];
     const totalPagoPct = pagos.reduce((s, p) => s + (Number(p.pct) || 0), 0);
-    const isPagadoNuevo = totalPagoPct >= 100;
-    const isPagadoViejo = !!(o.fechaPago) && pagos.length === 0;
-    return isPagadoNuevo || isPagadoViejo;
+    return totalPagoPct >= 100 || (!!(o.fechaPago) && pagos.length === 0);
   }
 
-  function calcComMXN(o) {
-    const pct = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : (o.pct || 2.20);
+  function getComMXN(o) {
+    const pct = (o.pctCustom !== null && o.pctCustom !== undefined) ? Number(o.pctCustom) : Number(o.pct || 2.20);
     let com = 0;
-    if (o.dlls  > 0) com += o.dlls  * (pct / 100) * tcUsado;
-    if (o.pesos > 0) com += o.pesos * (pct / 100);
+    if (Number(o.dlls)  > 0) com += Number(o.dlls)  * (pct / 100) * tcUsado;
+    if (Number(o.pesos) > 0) com += Number(o.pesos) * (pct / 100);
     return { com, pct };
   }
 
-  const pagadas    = allOrders.filter(o => calcIsPagado(o));
+  const pagadas    = allOrders.filter(o => calcIsPagado(o) && !o.sinFactura);
+  const sinFactura = allOrders.filter(o => calcIsPagado(o) &&  o.sinFactura);
   const pendientes = allOrders.filter(o => !calcIsPagado(o));
 
-  // Totales de ganancias (misma lógica que barra superior)
-  let totalGanMXN    = 0; // CON factura
-  let totalGanSFMXN  = 0; // SIN factura
+  let totalGanMXN   = 0;
+  let totalGanSFMXN = 0;
 
-  pagadas.forEach(o => {
-    const { com } = calcComMXN(o);
-    if (o.sinFactura) totalGanSFMXN += com;
-    else              totalGanMXN   += com;
-  });
+  pagadas.forEach(o    => { totalGanMXN   += getComMXN(o).com; });
+  sinFactura.forEach(o => { totalGanSFMXN += getComMXN(o).com; });
 
-  const rows = pagadas.map(o => {
-    const { com, pct } = calcComMXN(o);
-    const montoMXN  = parseFloat(o.pesos || 0);
-    const montoDlls = parseFloat(o.dlls  || 0);
-    const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
-    const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
-    const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
-    return `
-    <tr>
-      <td><strong>${o.odoo || '—'}</strong></td>
-      <td>${o.factura || '<span style="color:#888">s/fac</span>'}</td>
-      <td>${o.cliente || '—'}</td>
-      <td style="text-align:right">${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
-      <td style="text-align:right">${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
-      <td style="text-align:center"><span class="badge badge-orange">${pct.toFixed(2)}%</span></td>
-      <td style="text-align:right;color:#4caf50"><strong>$${fmt(totalEnMXN)} MXN</strong></td>
-      <td><span class="badge badge-green">✓ Pagado</span></td>
-    </tr>`;
-  }).join('');
+  const logoEl = document.querySelector('.logo-wrap img');
+  const logoSrc = logoEl ? logoEl.src : '';
 
-  const pendientesRows = pendientes.map(o => {
-    const { com, pct } = calcComMXN(o);
-    const montoMXN  = parseFloat(o.pesos || 0);
-    const montoDlls = parseFloat(o.dlls  || 0);
-    const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
-    const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
-    const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
-    return `
-    <tr>
-      <td><strong>${o.odoo || '—'}</strong></td>
-      <td>${o.factura || '<span style="color:#888">s/fac</span>'}</td>
-      <td>${o.cliente || '—'}</td>
-      <td style="text-align:right">${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
-      <td style="text-align:right">${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
-      <td style="text-align:center"><span class="badge badge-orange">${pct.toFixed(2)}%</span></td>
-      <td style="text-align:right;color:#888">$${fmt(totalEnMXN)} MXN</td>
-      <td><span class="badge badge-gray">Pendiente</span></td>
-    </tr>`;
-  }).join('');
+  function buildRows(list) {
+    return list.map(o => {
+      const { com, pct } = getComMXN(o);
+      const montoMXN  = Number(o.pesos || 0);
+      const montoDlls = Number(o.dlls  || 0);
+      const montoStr  = montoDlls > 0
+        ? '$' + montoDlls.toLocaleString('es-MX',{minimumFractionDigits:2}) + ' USD'
+        : '$' + montoMXN.toLocaleString('es-MX',{minimumFractionDigits:2})  + ' MXN';
+      const comStr = '$' + com.toLocaleString('es-MX',{minimumFractionDigits:2}) + ' MXN';
+      const estado = calcIsPagado(o) ? '<span style="color:#1a7a1a;font-weight:700">✓ Pagado</span>' : '<span style="color:#888">Pendiente</span>';
+      return '<tr><td>' + (o.odoo||'—') + '</td><td>' + (o.factura||'s/fac') + '</td><td>' + (o.cliente||'—') + '</td><td style="text-align:right">' + montoStr + '</td><td style="text-align:center">' + pct.toFixed(2) + '%</td><td style="text-align:right;color:#1a7a1a;font-weight:700">' + comStr + '</td><td>' + estado + '</td></tr>';
+    }).join('');
+  }
 
-  document.getElementById('reporteApp').innerHTML = `
-    <div class="resumen">
-      <!-- COL 1: Conteo -->
-      <div class="resumen-col">
-        <div class="resumen-bloque">
-          <div class="rb-label">Órdenes Pagadas</div>
-          <div class="rb-main green">${pagadas.length}</div>
-          <div class="rb-sub">de ${allOrders.length} totales en el período</div>
-        </div>
-        <div class="resumen-bloque">
-          <div class="rb-label">Órdenes Pendientes</div>
-          <div class="rb-main orange">${pendientes.length}</div>
-          <div class="rb-sub">sin completar pago 100%</div>
-        </div>
-      </div>
-      <!-- COL 2: TC DOF -->
-      <div class="resumen-col">
-        <div class="resumen-bloque">
-          <div class="rb-label">TC DOF Aplicado</div>
-          <div class="rb-main white">$${fmt(tcUsado)} MXN</div>
-          <div class="rb-sub">${tcFecha || 'Fecha no disponible'}</div>
-        </div>
-        <div class="resumen-bloque">
-          <div class="rb-label">Ganancias S/Factura</div>
-          <div class="rb-main" style="color:#f4a035;">$${fmt(totalGanSFMXN)} MXN</div>
-          <div class="rb-sub">comisiones sin documento fiscal</div>
-        </div>
-      </div>
-      <!-- COL 3: Total Ganancias (MISMO que barra superior) -->
-      <div class="resumen-gran">
-        <div class="rb-label">Ganancias Totales — Mismo cálculo que barra superior</div>
-        <div class="rb-formula">
-          Solo órdenes pagadas al 100% · monto × % · USD × TC DOF
-        </div>
-        <div class="rb-total">$${fmt(totalGanMXN)} MXN</div>
-        <div class="rb-sub">Con factura · TC $${fmt(tcUsado)} · ${tcFecha||''}</div>
-      </div>
-    </div>
+  const today = new Date();
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const fechaGen = today.getDate() + ' de ' + meses[today.getMonth()] + ' de ' + today.getFullYear();
+  const periodo = (typeof bimestreActivo !== 'undefined' ? bimestreActivo : 'ABR-MAY_2026').replace('_',' ');
 
-    <!-- TABLA PAGADAS -->
-    <div class="section">
-      <div class="section-title">Órdenes Pagadas (${pagadas.length})</div>
-      <table>
-        <thead><tr>
-          <th>ODOO</th><th>FACTURA</th><th>CLIENTE</th>
-          <th style="text-align:right">DLLS</th>
-          <th style="text-align:right">PESOS</th>
-          <th style="text-align:center">%</th>
-          <th style="text-align:right">COMISIÓN MXN</th>
-          <th>ESTADO</th>
-        </tr></thead>
-        <tbody>
-          ${rows}
-          <tr class="total-row">
-            <td colspan="6" style="text-align:right">TOTAL GANANCIAS</td>
-            <td style="text-align:right">$${fmt(totalGanMXN)} MXN</td>
-            <td></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+  const totalGanFmt  = totalGanMXN.toLocaleString('es-MX',{minimumFractionDigits:2});
+  const totalGanSFFmt = totalGanSFMXN.toLocaleString('es-MX',{minimumFractionDigits:2});
+  const totalGanGlobal = (totalGanMXN + totalGanSFMXN).toLocaleString('es-MX',{minimumFractionDigits:2});
 
-    <!-- TABLA PENDIENTES -->
-    <div class="section">
-      <div class="section-title">Órdenes Pendientes (${pendientes.length})</div>
-      <table>
-        <thead><tr>
-          <th>ODOO</th><th>FACTURA</th><th>CLIENTE</th>
-          <th style="text-align:right">DLLS</th>
-          <th style="text-align:right">PESOS</th>
-          <th style="text-align:center">%</th>
-          <th style="text-align:right">COMISIÓN EST. MXN</th>
-          <th>ESTADO</th>
-        </tr></thead>
-        <tbody>${pendientesRows}</tbody>
-      </table>
-    </div>
-  `;
+  document.getElementById('reporteApp').innerHTML =
+    '<div style="max-width:900px;margin:0 auto;padding:30px 40px;font-family:Segoe UI,sans-serif;color:#1a1a1a;background:#fff;">' +
+
+    // HEADER
+    '<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #2a1a08;padding-bottom:16px;margin-bottom:24px;">' +
+      '<div style="display:flex;align-items:center;gap:12px;">' +
+        (logoSrc ? '<img src="' + logoSrc + '" style="height:50px;object-fit:contain;">' : '') +
+        '<div><div style="font-size:1.1rem;font-weight:800;color:#2a1a08;letter-spacing:1px;">ISA RACK SA</div>' +
+        '<div style="font-size:0.72rem;color:#888;letter-spacing:1px;text-transform:uppercase;">Sistema de Control de Ventas</div></div>' +
+      '</div>' +
+      '<div style="text-align:right;">' +
+        '<div style="font-size:1rem;font-weight:700;color:#2a1a08;">REPORTE DE COMISIONES</div>' +
+        '<div style="font-size:0.85rem;font-weight:700;color:#f4a035;">Período: ' + periodo + '</div>' +
+        '<div style="font-size:0.72rem;color:#888;">Generado el ' + fechaGen + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    // KPIs
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1.5fr;gap:12px;margin-bottom:24px;">' +
+      '<div style="border:1px solid #e0e0e0;border-radius:8px;padding:14px 16px;">' +
+        '<div style="font-size:0.65rem;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Órdenes Pagadas</div>' +
+        '<div style="font-size:1.5rem;font-weight:800;color:#1a7a1a;">' + pagadas.length + '</div>' +
+        '<div style="font-size:0.7rem;color:#888;">de ' + allOrders.length + ' en el período</div>' +
+      '</div>' +
+      '<div style="border:1px solid #e0e0e0;border-radius:8px;padding:14px 16px;">' +
+        '<div style="font-size:0.65rem;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Pendientes</div>' +
+        '<div style="font-size:1.5rem;font-weight:800;color:#c0392b;">' + pendientes.length + '</div>' +
+        '<div style="font-size:0.7rem;color:#888;">sin pago completado</div>' +
+      '</div>' +
+      '<div style="border:1px solid #e0e0e0;border-radius:8px;padding:14px 16px;">' +
+        '<div style="font-size:0.65rem;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">TC DOF</div>' +
+        '<div style="font-size:1.2rem;font-weight:800;color:#2a1a08;">$' + tcUsado.toFixed(4) + '</div>' +
+        '<div style="font-size:0.7rem;color:#888;">' + (tcFecha||'') + '</div>' +
+      '</div>' +
+      '<div style="border:2px solid #2a1a08;border-radius:8px;padding:14px 16px;background:#fafafa;position:relative;overflow:hidden;">' +
+        '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#f4a035,#e85d04);"></div>' +
+        '<div style="font-size:0.65rem;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Ganancias Totales (Con Factura)</div>' +
+        '<div style="font-size:1.7rem;font-weight:800;color:#1a7a1a;">$' + totalGanFmt + ' MXN</div>' +
+        '<div style="font-size:0.7rem;color:#888;">TC $' + tcUsado.toFixed(4) + ' · ' + (tcFecha||'') + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    // TABLA PAGADAS
+    '<div style="margin-bottom:24px;">' +
+      '<div style="font-size:0.7rem;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">Órdenes Pagadas con Factura (' + pagadas.length + ') <div style="flex:1;height:1px;background:#e0e0e0;"></div></div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">' +
+        '<thead><tr style="background:#2a1a08;color:#fff;">' +
+          '<th style="padding:8px 10px;text-align:left;">ODOO</th>' +
+          '<th style="padding:8px 10px;text-align:left;">FACTURA</th>' +
+          '<th style="padding:8px 10px;text-align:left;">CLIENTE</th>' +
+          '<th style="padding:8px 10px;text-align:right;">MONTO</th>' +
+          '<th style="padding:8px 10px;text-align:center;">%</th>' +
+          '<th style="padding:8px 10px;text-align:right;">COMISIÓN MXN</th>' +
+          '<th style="padding:8px 10px;">ESTADO</th>' +
+        '</tr></thead>' +
+        '<tbody>' + buildRows(pagadas) +
+          '<tr style="background:#f0f8f0;font-weight:800;border-top:2px solid #1a7a1a;">' +
+            '<td colspan="5" style="padding:8px 10px;text-align:right;">TOTAL GANANCIAS CON FACTURA</td>' +
+            '<td style="padding:8px 10px;text-align:right;color:#1a7a1a;">$' + totalGanFmt + ' MXN</td>' +
+            '<td></td>' +
+          '</tr>' +
+        '</tbody>' +
+      '</table>' +
+    '</div>' +
+
+    // SIN FACTURA si hay
+    (sinFactura.length > 0 ?
+      '<div style="margin-bottom:24px;">' +
+        '<div style="font-size:0.7rem;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">Órdenes Pagadas Sin Factura (' + sinFactura.length + ') <div style="flex:1;height:1px;background:#e0e0e0;"></div></div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">' +
+          '<thead><tr style="background:#555;color:#fff;">' +
+            '<th style="padding:8px 10px;text-align:left;">ODOO</th><th style="padding:8px 10px;text-align:left;">FACTURA</th><th style="padding:8px 10px;text-align:left;">CLIENTE</th><th style="padding:8px 10px;text-align:right;">MONTO</th><th style="padding:8px 10px;text-align:center;">%</th><th style="padding:8px 10px;text-align:right;">COMISIÓN MXN</th><th style="padding:8px 10px;">ESTADO</th>' +
+          '</tr></thead>' +
+          '<tbody>' + buildRows(sinFactura) +
+            '<tr style="background:#f8f8f0;font-weight:800;border-top:2px solid #888;">' +
+              '<td colspan="5" style="padding:8px 10px;text-align:right;">TOTAL SIN FACTURA</td>' +
+              '<td style="padding:8px 10px;text-align:right;color:#555;">$' + totalGanSFFmt + ' MXN</td>' +
+              '<td></td>' +
+            '</tr>' +
+          '</tbody>' +
+        '</table>' +
+      '</div>'
+    : '') +
+
+    // FOOTER
+    '<div style="margin-top:32px;border-top:1px solid #e0e0e0;padding-top:14px;display:flex;justify-content:space-between;font-size:0.7rem;color:#aaa;">' +
+      '<span>ISA RACK SA — Control de Ventas</span>' +
+      '<span>Generado el ' + fechaGen + ' · TC DOF $' + tcUsado.toFixed(4) + '</span>' +
+    '</div>' +
+
+    '<div style="margin-top:14px;text-align:center;">' +
+      '<button onclick="window.print()" style="background:#2a1a08;color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:0.85rem;cursor:pointer;letter-spacing:1px;">🖨 IMPRIMIR / GUARDAR PDF</button>' +
+    '</div>' +
+
+    '</div>';
 }
 
-renderReporte().catch(e => {
-  document.getElementById('reporteApp').innerHTML = `<div class="loading" style="color:#f4a035">❌ Error: ${e.message}</div>`;
-});
+// renderReporte se llama solo desde abrirReporte()
 
 </script>
 
