@@ -7103,166 +7103,161 @@ function fmt(n) {
 
 async function renderReporte() {
   await fetchTC();
-  
+
   const snap = await db.collection(getCollection()).get();
-  const orders = snap.docs.map(d => d.data());
-  
-  const pagadas = orders.filter(o => isPagada(o));
-  const pendientes = orders.filter(o => !isPagada(o));
-  
-  let totalPesosMXN = 0;
-  let totalDlls = 0;
-  let totalComMXN = 0;
-  let totalComDlls = 0;
+  const allOrders = snap.docs.map(d => d.data());
+
+  // ── Misma lógica que updateStats ──
+  const tc = tcDOF || 0;
+  const tcUsado = tc > 0 ? tc : 17.2400;
+
+  function calcIsPagado(o) {
+    const pagos = o.pagos || [];
+    const totalPagoPct = pagos.reduce((s, p) => s + (Number(p.pct) || 0), 0);
+    const isPagadoNuevo = totalPagoPct >= 100;
+    const isPagadoViejo = !!(o.fechaPago) && pagos.length === 0;
+    return isPagadoNuevo || isPagadoViejo;
+  }
+
+  function calcComMXN(o) {
+    const pct = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : (o.pct || 2.20);
+    let com = 0;
+    if (o.dlls  > 0) com += o.dlls  * (pct / 100) * tcUsado;
+    if (o.pesos > 0) com += o.pesos * (pct / 100);
+    return { com, pct };
+  }
+
+  const pagadas    = allOrders.filter(o => calcIsPagado(o));
+  const pendientes = allOrders.filter(o => !calcIsPagado(o));
+
+  // Totales de ganancias (misma lógica que barra superior)
+  let totalGanMXN    = 0; // CON factura
+  let totalGanSFMXN  = 0; // SIN factura
+
+  pagadas.forEach(o => {
+    const { com } = calcComMXN(o);
+    if (o.sinFactura) totalGanSFMXN += com;
+    else              totalGanMXN   += com;
+  });
 
   const rows = pagadas.map(o => {
-    const pct = parseFloat(o.pct || o.anticipoPct || 2.20);
-    const montoMXN = parseFloat(o.monto || o.pesos || 0);
-    const montoDlls = parseFloat(o.dlls || 0);
-    
-    // Usar comisión ya calculada del sistema
-    const comMXN = parseFloat(o.comision || o.comisionMXN || (montoMXN * pct / 100));
-    const comDlls = montoDlls > 0 ? montoDlls * (pct / 100) : comMXN / tcDOF;
-    const comDllsEnPesos = comDlls * tcDOF;
-
-    totalPesosMXN += montoMXN;
-    totalDlls += montoDlls;
-    totalComMXN += comMXN;
-    totalComDlls += comDlls;
-
-    return `
+    const { com, pct } = calcComMXN(o);
+    const montoMXN  = parseFloat(o.pesos || 0);
+    const montoDlls = parseFloat(o.dlls  || 0);
+    const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
+    const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
+    const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
+    return \`
     <tr>
-      <td><strong>${o.odoo || '—'}</strong></td>
-      <td>${o.factura || '<span style="color:#888">s/fac</span>'}</td>
-      <td>${o.cliente || '—'}</td>
-      <td style="text-align:right">$${fmt(montoMXN)}</td>
-      <td style="text-align:center"><span class="badge badge-orange">${pct.toFixed(2)}%</span></td>
-      <td style="text-align:right;color:#4caf50"><strong>$${fmt(comDlls)} USD</strong></td>
-      <td style="text-align:right;color:#4caf50"><strong>$${fmt(comMXN)} MXN</strong></td>
-      <td style="text-align:right;color:#fff">$${fmt(tcDOF)}</td>
-      <td style="text-align:right;color:#4caf50"><strong>$${fmt(comDllsEnPesos)} MXN</strong></td>
+      <td><strong>\${o.odoo || '—'}</strong></td>
+      <td>\${o.factura || '<span style="color:#888">s/fac</span>'}</td>
+      <td>\${o.cliente || '—'}</td>
+      <td style="text-align:right">\${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
+      <td style="text-align:right">\${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
+      <td style="text-align:center"><span class="badge badge-orange">\${pct.toFixed(2)}%</span></td>
+      <td style="text-align:right;color:#4caf50"><strong>$\${fmt(totalEnMXN)} MXN</strong></td>
       <td><span class="badge badge-green">✓ Pagado</span></td>
-    </tr>`;
+    </tr>\`;
   }).join('');
 
   const pendientesRows = pendientes.map(o => {
-    const pct = parseFloat(o.pct || o.anticipoPct || 2.20);
-    const montoMXN = parseFloat(o.monto || o.pesos || 0);
-    const montoDlls = parseFloat(o.dlls || 0);
-    const comMXN = parseFloat(o.comision || o.comisionMXN || (montoMXN * pct / 100));
-    const comDlls = montoDlls > 0 ? montoDlls * (pct / 100) : comMXN / tcDOF;
-    const comDllsEnPesos = comDlls * tcDOF;
-
-    return `
+    const { com, pct } = calcComMXN(o);
+    const montoMXN  = parseFloat(o.pesos || 0);
+    const montoDlls = parseFloat(o.dlls  || 0);
+    const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
+    const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
+    const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
+    return \`
     <tr>
-      <td><strong>${o.odoo || '—'}</strong></td>
-      <td>${o.factura || '<span style="color:#888">s/fac</span>'}</td>
-      <td>${o.cliente || '—'}</td>
-      <td style="text-align:right">$${fmt(montoMXN)}</td>
-      <td style="text-align:center"><span class="badge badge-orange">${pct.toFixed(2)}%</span></td>
-      <td style="text-align:right;color:#888">$${fmt(comDlls)} USD</td>
-      <td style="text-align:right;color:#888">$${fmt(comMXN)} MXN</td>
-      <td style="text-align:right;color:#fff">$${fmt(tcDOF)}</td>
-      <td style="text-align:right;color:#888">$${fmt(comDllsEnPesos)} MXN</td>
+      <td><strong>\${o.odoo || '—'}</strong></td>
+      <td>\${o.factura || '<span style="color:#888">s/fac</span>'}</td>
+      <td>\${o.cliente || '—'}</td>
+      <td style="text-align:right">\${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
+      <td style="text-align:right">\${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
+      <td style="text-align:center"><span class="badge badge-orange">\${pct.toFixed(2)}%</span></td>
+      <td style="text-align:right;color:#888">$\${fmt(totalEnMXN)} MXN</td>
       <td><span class="badge badge-gray">Pendiente</span></td>
-    </tr>`;
+    </tr>\`;
   }).join('');
 
-  document.getElementById('reporteApp').innerHTML = `
+  document.getElementById('reporteApp').innerHTML = \`
     <div class="resumen">
-      <!-- COL 1: Ventas -->
+      <!-- COL 1: Conteo -->
       <div class="resumen-col">
         <div class="resumen-bloque">
-          <div class="rb-label">Ventas en Dólares</div>
-          <div class="rb-main blue">$${fmt(totalDlls)} USD</div>
-          <div class="rb-sub">TC DOF: $${fmt(tcDOF)} · ${tcFecha}</div>
+          <div class="rb-label">Órdenes Pagadas</div>
+          <div class="rb-main green">\${pagadas.length}</div>
+          <div class="rb-sub">de \${allOrders.length} totales en el período</div>
         </div>
         <div class="resumen-bloque">
-          <div class="rb-label">Ventas en Pesos</div>
-          <div class="rb-main white">$${fmt(totalPesosMXN)} MXN</div>
-          <div class="rb-sub">${pagadas.length} pagados · ${pendientes.length} pendientes</div>
+          <div class="rb-label">Órdenes Pendientes</div>
+          <div class="rb-main orange">\${pendientes.length}</div>
+          <div class="rb-sub">sin completar pago 100%</div>
         </div>
       </div>
-      <!-- COL 2: Comisiones -->
+      <!-- COL 2: TC DOF -->
       <div class="resumen-col">
         <div class="resumen-bloque">
-          <div class="rb-label">Comisiones Dólares</div>
-          <div class="rb-main green">$${fmt(totalComDlls)} USD</div>
-          <div class="rb-sub">Solo pedidos pagados</div>
+          <div class="rb-label">TC DOF Aplicado</div>
+          <div class="rb-main white">$\${fmt(tcUsado)} MXN</div>
+          <div class="rb-sub">\${tcFecha || 'Fecha no disponible'}</div>
         </div>
         <div class="resumen-bloque">
-          <div class="rb-label">Comisiones Pesos</div>
-          <div class="rb-main green">$${fmt(totalComMXN)} MXN</div>
-          <div class="rb-sub">Solo pedidos pagados</div>
+          <div class="rb-label">Ganancias S/Factura</div>
+          <div class="rb-main" style="color:#f4a035;">$\${fmt(totalGanSFMXN)} MXN</div>
+          <div class="rb-sub">comisiones sin documento fiscal</div>
         </div>
       </div>
-      <!-- COL 3: Gran Total -->
+      <!-- COL 3: Total Ganancias (MISMO que barra superior) -->
       <div class="resumen-gran">
-        <div class="rb-label">Gran Total de Comisiones</div>
+        <div class="rb-label">Ganancias Totales — Mismo cálculo que barra superior</div>
         <div class="rb-formula">
-          Comisiones USD × TC DOF<br>
-          + Comisiones MXN
+          Solo órdenes pagadas al 100% · monto × % · USD × TC DOF
         </div>
-        <div class="rb-total">$${fmt((totalComDlls * tcDOF) + totalComMXN)}</div>
-        <div class="rb-sub">MXN · Total a pagar al vendedor</div>
+        <div class="rb-total">$\${fmt(totalGanMXN)} MXN</div>
+        <div class="rb-sub">Con factura · TC $\${fmt(tcUsado)} · \${tcFecha||''}</div>
       </div>
     </div>
 
-
+    <!-- TABLA PAGADAS -->
     <div class="section">
-      <h2>✅ Comisiones Pagadas (${pagadas.length} órdenes)</h2>
+      <div class="section-title">Órdenes Pagadas (\${pagadas.length})</div>
       <table>
-        <thead>
-          <tr>
-            <th>Pedido</th>
-            <th>Factura</th>
-            <th>Cliente</th>
-            <th style="text-align:right">Monto Pedido</th>
-            <th style="text-align:center">% Comisión</th>
-            <th style="text-align:right">Comisión USD</th>
-            <th style="text-align:right">Comisión MXN</th>
-            <th style="text-align:right">TC DOF</th>
-            <th style="text-align:right">Total a Pagar</th>
-            <th>Estado</th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th>ODOO</th><th>FACTURA</th><th>CLIENTE</th>
+          <th style="text-align:right">DLLS</th>
+          <th style="text-align:right">PESOS</th>
+          <th style="text-align:center">%</th>
+          <th style="text-align:right">COMISIÓN MXN</th>
+          <th>ESTADO</th>
+        </tr></thead>
         <tbody>
-          ${rows}
+          \${rows}
           <tr class="total-row">
-            <td colspan="3"><strong>TOTAL COMISIONES PAGADAS</strong></td>
-            <td style="text-align:right">$${fmt(totalPesosMXN)}</td>
-            <td></td>
-            <td style="text-align:right">$${fmt(totalComDlls)} USD</td>
-            <td style="text-align:right">$${fmt(totalComMXN)} MXN</td>
-            <td></td>
-            <td style="text-align:right">$${fmt(totalComMXN)} MXN</td>
+            <td colspan="6" style="text-align:right">TOTAL GANANCIAS</td>
+            <td style="text-align:right">$\${fmt(totalGanMXN)} MXN</td>
             <td></td>
           </tr>
         </tbody>
       </table>
     </div>
 
+    <!-- TABLA PENDIENTES -->
     <div class="section">
-      <h2>⏳ Pendientes de Cobro (${pendientes.length} órdenes)</h2>
+      <div class="section-title">Órdenes Pendientes (\${pendientes.length})</div>
       <table>
-        <thead>
-          <tr>
-            <th>Pedido</th>
-            <th>Factura</th>
-            <th>Cliente</th>
-            <th style="text-align:right">Monto Pedido</th>
-            <th style="text-align:center">% Comisión</th>
-            <th style="text-align:right">Comisión USD</th>
-            <th style="text-align:right">Comisión MXN</th>
-            <th style="text-align:right">TC DOF</th>
-            <th style="text-align:right">Total a Pagar</th>
-            <th>Estado</th>
-          </tr>
-        </thead>
-        <tbody>${pendientesRows}</tbody>
+        <thead><tr>
+          <th>ODOO</th><th>FACTURA</th><th>CLIENTE</th>
+          <th style="text-align:right">DLLS</th>
+          <th style="text-align:right">PESOS</th>
+          <th style="text-align:center">%</th>
+          <th style="text-align:right">COMISIÓN EST. MXN</th>
+          <th>ESTADO</th>
+        </tr></thead>
+        <tbody>\${pendientesRows}</tbody>
       </table>
     </div>
-  `;
+  \`;
 }
 
 renderReporte().catch(e => {
