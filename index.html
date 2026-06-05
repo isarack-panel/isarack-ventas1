@@ -5707,11 +5707,10 @@
   }
 
   // ── TIPO DE CAMBIO DOF ───────────────────────────────────────
-  // TC DOF — siempre jalar de /api/tc, nunca usar caché viejo
-  let tcDOF = 0; // manual
-let _unused = 17.3213;
-  let tcFechaStr = '';
-  localStorage.removeItem('tcDOF_manual'); // limpiar caché viejo
+  // TC DOF fijo — valor base 17.2945, editable manualmente
+  let tcDOF = 17.2945;
+let _unused = 17.2945;
+  let tcFechaStr = '2026-06-05';
 
 
   // ═══════════════════════════════════════════
@@ -7084,7 +7083,13 @@ let tcFecha = '';
 
 let tcManual = false;
 
-async function fetchTC() { /* TC manual - no auto */ }
+async function fetchTC() {
+  // TC fijo — muestra el valor actual en pantalla
+  const tcEl = document.getElementById('tipoCambio');
+  const tcFechaEl = document.getElementById('tcFecha');
+  if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC manual — edita con ✏'; }
+  if (tcFechaEl) { tcFechaEl.textContent = tcFechaStr || '2026-06-05'; }
+}
 
 function isPagada(o) {
   const pgs = Array.isArray(o.pagos) ? o.pagos : (o.pagos ? Object.values(o.pagos) : []);
