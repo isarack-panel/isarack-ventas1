@@ -5707,10 +5707,11 @@
   }
 
   // ── TIPO DE CAMBIO DOF ───────────────────────────────────────
-  // TC DOF fijo — valor base 17.2945, editable manualmente
-  let tcDOF = 17.2945;
-let _unused = 17.2945;
-  let tcFechaStr = '2026-06-05';
+  // TC DOF — manual, el usuario lo ingresa con ✏
+  let tcDOF = 0;
+let _unused = 0;
+  let tcFechaStr = '';
+  localStorage.removeItem('tcDOF_cache'); // limpiar caché de API anterior
 
 
   // ═══════════════════════════════════════════
@@ -5923,40 +5924,9 @@ let _unused = 17.2945;
   async function fetchTipoCambio() {
     const tcEl = document.getElementById('tipoCambio');
     const tcFechaEl = document.getElementById('tcFecha');
-
-    // ── Fuente 1: exchangerate-api (gratuita, sin CORS) ──────────
-    try {
-      const r = await fetch('https://open.er-api.com/v6/latest/USD');
-      if (r.ok) {
-        const d = await r.json();
-        if (d?.rates?.MXN > 5) {
-          tcDOF = d.rates.MXN;
-          const fecha = new Date(d.time_last_update_utc);
-          tcFechaStr = fecha.toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'});
-          localStorage.setItem('tcDOF_cache', JSON.stringify({val: tcDOF, fecha: tcFechaStr, ts: Date.now()}));
-          if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC USD/MXN — ExchangeRate API'; }
-          if (tcFechaEl) tcFechaEl.textContent = tcFechaStr;
-          updateStats(); return;
-        }
-      }
-    } catch(e) {}
-
-    // ── Fuente 2: caché guardado en localStorage ──────────────────
-    try {
-      const cached = JSON.parse(localStorage.getItem('tcDOF_cache') || 'null');
-      const hoy = new Date().toISOString().split('T')[0];
-      const cachedHoy = cached && cached.ts && new Date(cached.ts).toISOString().split('T')[0] === hoy;
-      if (cached && cached.val > 5 && cachedHoy) {
-        tcDOF = cached.val;
-        tcFechaStr = cached.fecha;
-        if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC — último valor guardado: ' + tcFechaStr; }
-        if (tcFechaEl) tcFechaEl.textContent = tcFechaStr + ' (caché)';
-        updateStats(); return;
-      }
-    } catch(e) {}
-
-    // ── Fallback: usar valor por defecto ─────────────────────────
-    if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC — valor por defecto'; }
+    // Sin fetch automático — solo muestra el valor actual
+    if (tcEl) { tcEl.textContent = tcDOF > 0 ? '$' + tcDOF.toFixed(4) : '—'; tcEl.title = 'Clic en ✏ para editar'; }
+    if (tcFechaEl) tcFechaEl.textContent = tcFechaStr || '';
     updateStats();
   }
 
@@ -7083,13 +7053,7 @@ let tcFecha = '';
 
 let tcManual = false;
 
-async function fetchTC() {
-  // TC fijo — muestra el valor actual en pantalla
-  const tcEl = document.getElementById('tipoCambio');
-  const tcFechaEl = document.getElementById('tcFecha');
-  if (tcEl) { tcEl.textContent = '$' + tcDOF.toFixed(4); tcEl.title = 'TC manual — edita con ✏'; }
-  if (tcFechaEl) { tcFechaEl.textContent = tcFechaStr || '2026-06-05'; }
-}
+async function fetchTC() { /* TC manual - no auto */ }
 
 function isPagada(o) {
   const pgs = Array.isArray(o.pagos) ? o.pagos : (o.pagos ? Object.values(o.pagos) : []);
