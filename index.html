@@ -6898,7 +6898,7 @@ async function renderReporte() {
   const tcUsado = tc > 0 ? tc : 17.2400;
 
   function calcIsPagado(o) {
-    const pagos = o.pagos || [];
+    const pagos = Array.isArray(o.pagos) ? o.pagos : (o.pagos ? Object.values(o.pagos) : []);
     const totalPagoPct = pagos.reduce((s, p) => s + (Number(p.pct) || 0), 0);
     const isPagadoNuevo = totalPagoPct >= 100;
     const isPagadoViejo = !!(o.fechaPago) && pagos.length === 0;
