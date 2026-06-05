@@ -6861,6 +6861,31 @@ function cerrarReporte() {
   document.body.style.overflow = '';
 }
 
+let tcFecha = '';
+// Restaurar TC manual si el usuario lo fijó antes
+(function() {
+  const saved = localStorage.getItem('tcManual');
+  if (saved && parseFloat(saved) > 5) {
+    tcDOF = parseFloat(saved);
+    tcManual = true;
+  }
+})();
+
+let tcManual = false;
+
+async function fetchTC() { /* TC manual - no auto */ }
+
+function isPagada(o) {
+  const pgs = Array.isArray(o.pagos) ? o.pagos : (o.pagos ? Object.values(o.pagos) : []);
+  const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
+  const pagadaNuevo = tot >= 100 && pgs.some(p => p.file);
+  const pagadaViejo = !!(o.fechaPago && o.files && o.files.pago);
+  return pagadaNuevo || pagadaViejo;
+}
+
+function fmt(n) {
+  return Number(n||0).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
 
 async function renderReporte() {
   await fetchTC();
@@ -6908,7 +6933,7 @@ async function renderReporte() {
     const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
     const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
     const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
-    return \`
+    return `
     <tr>
       <td><strong>\${o.odoo || '—'}</strong></td>
       <td>\${o.factura || '<span style="color:#888">s/fac</span>'}</td>
@@ -6918,7 +6943,7 @@ async function renderReporte() {
       <td style="text-align:center"><span class="badge badge-orange">\${pct.toFixed(2)}%</span></td>
       <td style="text-align:right;color:#4caf50"><strong>$\${fmt(totalEnMXN)} MXN</strong></td>
       <td><span class="badge badge-green">✓ Pagado</span></td>
-    </tr>\`;
+    </tr>`;
   }).join('');
 
   const pendientesRows = pendientes.map(o => {
@@ -6928,7 +6953,7 @@ async function renderReporte() {
     const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
     const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
     const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
-    return \`
+    return `
     <tr>
       <td><strong>\${o.odoo || '—'}</strong></td>
       <td>\${o.factura || '<span style="color:#888">s/fac</span>'}</td>
@@ -6938,10 +6963,10 @@ async function renderReporte() {
       <td style="text-align:center"><span class="badge badge-orange">\${pct.toFixed(2)}%</span></td>
       <td style="text-align:right;color:#888">$\${fmt(totalEnMXN)} MXN</td>
       <td><span class="badge badge-gray">Pendiente</span></td>
-    </tr>\`;
+    </tr>`;
   }).join('');
 
-  document.getElementById('reporteApp').innerHTML = \`
+  document.getElementById('reporteApp').innerHTML = `
     <div class="resumen">
       <!-- COL 1: Conteo -->
       <div class="resumen-col">
@@ -7018,7 +7043,7 @@ async function renderReporte() {
         <tbody>\${pendientesRows}</tbody>
       </table>
     </div>
-  \`;
+  `;
 }
 
 renderReporte().catch(e => {
