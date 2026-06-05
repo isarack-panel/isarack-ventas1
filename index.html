@@ -6861,31 +6861,6 @@ function cerrarReporte() {
   document.body.style.overflow = '';
 }
 
-let tcFecha = '';
-// Restaurar TC manual si el usuario lo fijó antes
-(function() {
-  const saved = localStorage.getItem('tcManual');
-  if (saved && parseFloat(saved) > 5) {
-    tcDOF = parseFloat(saved);
-    tcManual = true;
-  }
-})();
-
-let tcManual = false;
-
-async function fetchTC() { /* TC manual - no auto */ }
-
-function isPagada(o) {
-  const pgs = Array.isArray(o.pagos) ? o.pagos : (o.pagos ? Object.values(o.pagos) : []);
-  const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
-  const pagadaNuevo = tot >= 100 && pgs.some(p => p.file);
-  const pagadaViejo = !!(o.fechaPago && o.files && o.files.pago);
-  return pagadaNuevo || pagadaViejo;
-}
-
-function fmt(n) {
-  return Number(n||0).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
-}
 
 async function renderReporte() {
   await fetchTC();
