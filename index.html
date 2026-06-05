@@ -4360,8 +4360,6 @@
   // Inicializar Firebase de forma segura
   let db = null;
   let firebaseReady = false;
-  window._getDb = () => db;
-  window._getCollection = () => typeof getCollection === 'function' ? getCollection() : 'isarack_orders';
   try {
     if (typeof firebase !== 'undefined') {
       if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
@@ -5709,9 +5707,9 @@
   }
 
   // ── TIPO DE CAMBIO DOF ───────────────────────────────────────
-  // TC DOF — manual, el usuario lo ingresa con ✏
-  let tcDOF = 0;
-let _unused = 0;
+  // TC DOF — siempre jalar de /api/tc, nunca usar caché viejo
+  let tcDOF = 0; // manual
+let _unused = 17.3213;
   let tcFechaStr = '';
   localStorage.removeItem('tcDOF_cache');
   localStorage.removeItem('tcManual');
@@ -5927,8 +5925,7 @@ let _unused = 0;
   async function fetchTipoCambio() {
     const tcEl = document.getElementById('tipoCambio');
     const tcFechaEl = document.getElementById('tcFecha');
-    // Sin fetch automático — solo muestra el valor actual
-    if (tcEl) { tcEl.textContent = tcDOF > 0 ? '$' + tcDOF.toFixed(4) : '—'; tcEl.title = 'Clic en ✏ para editar'; }
+    if (tcEl) tcEl.textContent = tcDOF > 0 ? '$' + tcDOF.toFixed(4) : '---';
     if (tcFechaEl) tcFechaEl.textContent = tcFechaStr || '';
     updateStats();
   }
@@ -6848,6 +6845,111 @@ let _unused = 0;
       '<span style="color:#2ecc71;font-family:Barlow Condensed,sans-serif;font-size:13px;">🟢 Cobrado: <b>'+fmt(totCob)+'</b> MXN</span>';
   }
 
+
+
+// ═══════════════════════════════════════════
+//  REPORTE GERENCIA
+// ═══════════════════════════════════════════
+function abrirReporte() {
+  document.getElementById('reporteModal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  document.getElementById('reporteApp').innerHTML = '<div class="loading">⏳ Cargando datos...</div>';
+  renderReporte().catch(e => {
+    document.getElementById('reporteApp').innerHTML = '<div class="loading" style="color:#f4a035">❌ Error: ' + e.message + '</div>';
+  });
+}
+
+function cerrarReporte() {
+  document.getElementById('reporteModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+async function renderReporte() {
+  const tc = tcDOF || 0;
+  const tcUsado = tc > 0 ? tc : 17.2400;
+
+  const snap = await db.collection(getCollection()).get();
+  const allOrders = snap.docs.map(d => d.data());
+
+  function calcIsPagado(o) {
+    const pagos = Array.isArray(o.pagos) ? o.pagos : (o.pagos ? Object.values(o.pagos) : []);
+    const totalPct = pagos.reduce((s, p) => s + (Number(p.pct) || 0), 0);
+    return (totalPct >= 100) || (!!(o.fechaPago) && pagos.length === 0);
+  }
+
+  function calcComMXN(o) {
+    const pct = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : (o.pct || 2.20);
+    let com = 0;
+    if (o.dlls  > 0) com += o.dlls  * (pct / 100) * tcUsado;
+    if (o.pesos > 0) com += o.pesos * (pct / 100);
+    return { com, pct };
+  }
+
+  function fmtR(n) {
+    return Number(n||0).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  const pagadas    = allOrders.filter(o =>  calcIsPagado(o));
+  const pendientes = allOrders.filter(o => !calcIsPagado(o));
+
+  let totalGanMXN = 0, totalGanSFMXN = 0;
+  pagadas.forEach(o => {
+    const { com } = calcComMXN(o);
+    if (o.sinFactura) totalGanSFMXN += com;
+    else              totalGanMXN   += com;
+  });
+
+  function buildRow(o, isPag) {
+    const { com, pct } = calcComMXN(o);
+    const montoDlls = parseFloat(o.dlls  || 0);
+    const montoMXN  = parseFloat(o.pesos || 0);
+    const totalEnMXN = (montoDlls > 0 ? montoDlls * (pct/100) * tcUsado : 0) + (montoMXN > 0 ? montoMXN * (pct/100) : 0);
+    return '<tr>' +
+      '<td><strong>' + (o.odoo || '—') + '</strong></td>' +
+      '<td>' + (o.factura || '<span style="color:#888">s/fac</span>') + '</td>' +
+      '<td>' + (o.cliente || '—') + '</td>' +
+      '<td style="text-align:right">' + (montoDlls > 0 ? '$' + fmtR(montoDlls) + ' USD' : '—') + '</td>' +
+      '<td style="text-align:right">' + (montoMXN  > 0 ? '$' + fmtR(montoMXN)  + ' MXN' : '—') + '</td>' +
+      '<td style="text-align:center"><span class="badge badge-orange">' + pct.toFixed(2) + '%</span></td>' +
+      '<td style="text-align:right;color:' + (isPag ? '#4caf50' : '#888') + '"><strong>$' + fmtR(totalEnMXN) + ' MXN</strong></td>' +
+      '<td><span class="badge ' + (isPag ? 'badge-green">✓ Pagado' : 'badge-gray">Pendiente') + '</span></td>' +
+    '</tr>';
+  }
+
+  const rows           = pagadas.map(o => buildRow(o, true)).join('');
+  const pendientesRows = pendientes.map(o => buildRow(o, false)).join('');
+
+  document.getElementById('reporteApp').innerHTML =
+    '<div class="resumen">' +
+      '<div class="resumen-col">' +
+        '<div class="resumen-bloque"><div class="rb-label">Órdenes Pagadas</div><div class="rb-main green">' + pagadas.length + '</div><div class="rb-sub">de ' + allOrders.length + ' totales en el período</div></div>' +
+        '<div class="resumen-bloque"><div class="rb-label">Órdenes Pendientes</div><div class="rb-main orange">' + pendientes.length + '</div><div class="rb-sub">sin completar pago 100%</div></div>' +
+      '</div>' +
+      '<div class="resumen-col">' +
+        '<div class="resumen-bloque"><div class="rb-label">TC DOF Aplicado</div><div class="rb-main white">$' + fmtR(tcUsado) + ' MXN</div><div class="rb-sub">' + (tcFechaStr || '') + '</div></div>' +
+        '<div class="resumen-bloque"><div class="rb-label">Ganancias S/Factura</div><div class="rb-main" style="color:#f4a035">$' + fmtR(totalGanSFMXN) + ' MXN</div><div class="rb-sub">sin documento fiscal</div></div>' +
+      '</div>' +
+      '<div class="resumen-gran">' +
+        '<div class="rb-label">Comisiones Pagadas — Con Factura</div>' +
+        '<div class="rb-formula">Solo órdenes pagadas al 100% · monto × % · USD × TC DOF</div>' +
+        '<div class="rb-total">$' + fmtR(totalGanMXN) + ' MXN</div>' +
+        '<div class="rb-sub">TC $' + fmtR(tcUsado) + ' · ' + (tcFechaStr || '') + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="section">' +
+      '<div class="section-title">✅ Órdenes Pagadas (' + pagadas.length + ')</div>' +
+      '<table><thead><tr><th>ODOO</th><th>FACTURA</th><th>CLIENTE</th><th style="text-align:right">DLLS</th><th style="text-align:right">PESOS</th><th style="text-align:center">%</th><th style="text-align:right">COMISIÓN MXN</th><th>ESTADO</th></tr></thead>' +
+      '<tbody>' + rows +
+        '<tr class="total-row"><td colspan="6" style="text-align:right">TOTAL GANANCIAS CON FACTURA</td><td style="text-align:right">$' + fmtR(totalGanMXN) + ' MXN</td><td></td></tr>' +
+      '</tbody></table>' +
+    '</div>' +
+    '<div class="section">' +
+      '<div class="section-title">⏳ Órdenes Pendientes (' + pendientes.length + ')</div>' +
+      '<table><thead><tr><th>ODOO</th><th>FACTURA</th><th>CLIENTE</th><th style="text-align:right">DLLS</th><th style="text-align:right">PESOS</th><th style="text-align:center">%</th><th style="text-align:right">COMISIÓN EST. MXN</th><th>ESTADO</th></tr></thead>' +
+      '<tbody>' + pendientesRows + '</tbody></table>' +
+    '</div>';
+}
+
 </script>
 
 <!-- ═══ MODAL REPORTE COMISIONES ═══ -->
@@ -7027,221 +7129,7 @@ let _unused = 0;
   <button onclick="window.print()" style="position:fixed;bottom:24px;right:24px;background:#f4a035;color:#fff;border:none;padding:10px 22px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(244,160,53,0.3);font-family:inherit;">🖨️ Imprimir</button>
 </div>
 
-<script>
-function abrirReporte() {
-  document.getElementById('reporteModal').style.display = 'block';
-  document.body.style.overflow = 'hidden';
-  document.getElementById('reporteApp').innerHTML = '<div class="loading">⏳ Cargando datos...</div>';
-  renderReporte().catch(e => {
-    document.getElementById('reporteApp').innerHTML = '<div class="loading" style="color:#f4a035">❌ Error: ' + e.message + '</div>';
-  });
-}
-function cerrarReporte() {
-  document.getElementById('reporteModal').style.display = 'none';
-  document.body.style.overflow = '';
-  window._reporteLoaded = false;
-}
 
-/* firebaseConfig ya definido */
-
-
-
-
-
-let tcFecha = '';
-// Restaurar TC manual si el usuario lo fijó antes
-(function() {
-  const saved = localStorage.getItem('tcManual');
-  if (saved && parseFloat(saved) > 5) {
-    tcDOF = parseFloat(saved);
-    tcManual = true;
-  }
-})();
-
-let tcManual = false;
-
-async function fetchTC() { /* TC manual - no auto */ }
-
-function isPagada(o) {
-  const pgs = Array.isArray(o.pagos) ? o.pagos : (o.pagos ? Object.values(o.pagos) : []);
-  const tot = pgs.reduce((s,p) => s + (Number(p.pct)||0), 0);
-  const pagadaNuevo = tot >= 100 && pgs.some(p => p.file);
-  const pagadaViejo = !!(o.fechaPago && o.files && o.files.pago);
-  return pagadaNuevo || pagadaViejo;
-}
-
-function fmt(n) {
-  return Number(n||0).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
-}
-
-async function renderReporte() {
-  await fetchTC();
-
-  const _db = window._getDb ? window._getDb() : db;
-  if (!_db) {
-    document.getElementById('reporteApp').innerHTML = '<div class="loading" style="color:#f4a035">❌ Firebase no disponible. Recarga la página.</div>';
-    return;
-  }
-  const _col = window._getCollection ? window._getCollection() : 'isarack_orders';
-  const snap = await _db.collection(_col).get();
-  const allOrders = snap.docs.map(d => d.data());
-
-  // ── Misma lógica que updateStats ──
-  const tc = tcDOF || 0;
-  const tcUsado = tc > 0 ? tc : 17.2400;
-
-  function calcIsPagado(o) {
-    const pagos = o.pagos || [];
-    const totalPagoPct = pagos.reduce((s, p) => s + (Number(p.pct) || 0), 0);
-    const isPagadoNuevo = totalPagoPct >= 100;
-    const isPagadoViejo = !!(o.fechaPago) && pagos.length === 0;
-    return isPagadoNuevo || isPagadoViejo;
-  }
-
-  function calcComMXN(o) {
-    const pct = (o.pctCustom !== null && o.pctCustom !== undefined) ? o.pctCustom : (o.pct || 2.20);
-    let com = 0;
-    if (o.dlls  > 0) com += o.dlls  * (pct / 100) * tcUsado;
-    if (o.pesos > 0) com += o.pesos * (pct / 100);
-    return { com, pct };
-  }
-
-  const pagadas    = allOrders.filter(o => calcIsPagado(o));
-  const pendientes = allOrders.filter(o => !calcIsPagado(o));
-
-  // Totales de ganancias (misma lógica que barra superior)
-  let totalGanMXN    = 0; // CON factura
-  let totalGanSFMXN  = 0; // SIN factura
-
-  pagadas.forEach(o => {
-    const { com } = calcComMXN(o);
-    if (o.sinFactura) totalGanSFMXN += com;
-    else              totalGanMXN   += com;
-  });
-
-  const rows = pagadas.map(o => {
-    const { com, pct } = calcComMXN(o);
-    const montoMXN  = parseFloat(o.pesos || 0);
-    const montoDlls = parseFloat(o.dlls  || 0);
-    const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
-    const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
-    const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
-    return \`
-    <tr>
-      <td><strong>\${o.odoo || '—'}</strong></td>
-      <td>\${o.factura || '<span style="color:#888">s/fac</span>'}</td>
-      <td>\${o.cliente || '—'}</td>
-      <td style="text-align:right">\${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
-      <td style="text-align:right">\${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
-      <td style="text-align:center"><span class="badge badge-orange">\${pct.toFixed(2)}%</span></td>
-      <td style="text-align:right;color:#4caf50"><strong>$\${fmt(totalEnMXN)} MXN</strong></td>
-      <td><span class="badge badge-green">✓ Pagado</span></td>
-    </tr>\`;
-  }).join('');
-
-  const pendientesRows = pendientes.map(o => {
-    const { com, pct } = calcComMXN(o);
-    const montoMXN  = parseFloat(o.pesos || 0);
-    const montoDlls = parseFloat(o.dlls  || 0);
-    const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
-    const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
-    const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
-    return \`
-    <tr>
-      <td><strong>\${o.odoo || '—'}</strong></td>
-      <td>\${o.factura || '<span style="color:#888">s/fac</span>'}</td>
-      <td>\${o.cliente || '—'}</td>
-      <td style="text-align:right">\${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
-      <td style="text-align:right">\${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
-      <td style="text-align:center"><span class="badge badge-orange">\${pct.toFixed(2)}%</span></td>
-      <td style="text-align:right;color:#888">$\${fmt(totalEnMXN)} MXN</td>
-      <td><span class="badge badge-gray">Pendiente</span></td>
-    </tr>\`;
-  }).join('');
-
-  document.getElementById('reporteApp').innerHTML = \`
-    <div class="resumen">
-      <!-- COL 1: Conteo -->
-      <div class="resumen-col">
-        <div class="resumen-bloque">
-          <div class="rb-label">Órdenes Pagadas</div>
-          <div class="rb-main green">\${pagadas.length}</div>
-          <div class="rb-sub">de \${allOrders.length} totales en el período</div>
-        </div>
-        <div class="resumen-bloque">
-          <div class="rb-label">Órdenes Pendientes</div>
-          <div class="rb-main orange">\${pendientes.length}</div>
-          <div class="rb-sub">sin completar pago 100%</div>
-        </div>
-      </div>
-      <!-- COL 2: TC DOF -->
-      <div class="resumen-col">
-        <div class="resumen-bloque">
-          <div class="rb-label">TC DOF Aplicado</div>
-          <div class="rb-main white">$\${fmt(tcUsado)} MXN</div>
-          <div class="rb-sub">\${tcFecha || 'Fecha no disponible'}</div>
-        </div>
-        <div class="resumen-bloque">
-          <div class="rb-label">Ganancias S/Factura</div>
-          <div class="rb-main" style="color:#f4a035;">$\${fmt(totalGanSFMXN)} MXN</div>
-          <div class="rb-sub">comisiones sin documento fiscal</div>
-        </div>
-      </div>
-      <!-- COL 3: Total Ganancias (MISMO que barra superior) -->
-      <div class="resumen-gran">
-        <div class="rb-label">Ganancias Totales — Mismo cálculo que barra superior</div>
-        <div class="rb-formula">
-          Solo órdenes pagadas al 100% · monto × % · USD × TC DOF
-        </div>
-        <div class="rb-total">$\${fmt(totalGanMXN)} MXN</div>
-        <div class="rb-sub">Con factura · TC $\${fmt(tcUsado)} · \${tcFecha||''}</div>
-      </div>
-    </div>
-
-    <!-- TABLA PAGADAS -->
-    <div class="section">
-      <div class="section-title">Órdenes Pagadas (\${pagadas.length})</div>
-      <table>
-        <thead><tr>
-          <th>ODOO</th><th>FACTURA</th><th>CLIENTE</th>
-          <th style="text-align:right">DLLS</th>
-          <th style="text-align:right">PESOS</th>
-          <th style="text-align:center">%</th>
-          <th style="text-align:right">COMISIÓN MXN</th>
-          <th>ESTADO</th>
-        </tr></thead>
-        <tbody>
-          \${rows}
-          <tr class="total-row">
-            <td colspan="6" style="text-align:right">TOTAL GANANCIAS</td>
-            <td style="text-align:right">$\${fmt(totalGanMXN)} MXN</td>
-            <td></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- TABLA PENDIENTES -->
-    <div class="section">
-      <div class="section-title">Órdenes Pendientes (\${pendientes.length})</div>
-      <table>
-        <thead><tr>
-          <th>ODOO</th><th>FACTURA</th><th>CLIENTE</th>
-          <th style="text-align:right">DLLS</th>
-          <th style="text-align:right">PESOS</th>
-          <th style="text-align:center">%</th>
-          <th style="text-align:right">COMISIÓN EST. MXN</th>
-          <th>ESTADO</th>
-        </tr></thead>
-        <tbody>\${pendientesRows}</tbody>
-      </table>
-    </div>
-  \`;
-}
-
-// renderReporte se llama solo cuando el usuario abre el modal
-
-</script>
 
 </body>
 </html>
