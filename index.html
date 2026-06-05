@@ -4360,6 +4360,8 @@
   // Inicializar Firebase de forma segura
   let db = null;
   let firebaseReady = false;
+  window._getDb = () => db;
+  window._getCollection = () => typeof getCollection === 'function' ? getCollection() : 'isarack_orders';
   try {
     if (typeof firebase !== 'undefined') {
       if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
@@ -5711,7 +5713,8 @@
   let tcDOF = 0;
 let _unused = 0;
   let tcFechaStr = '';
-  localStorage.removeItem('tcDOF_cache'); // limpiar caché de API anterior
+  localStorage.removeItem('tcDOF_cache');
+  localStorage.removeItem('tcManual');
 
 
   // ═══════════════════════════════════════════
@@ -7028,11 +7031,15 @@ let _unused = 0;
 function abrirReporte() {
   document.getElementById('reporteModal').style.display = 'block';
   document.body.style.overflow = 'hidden';
-  if (!window._reporteLoaded) { window._reporteLoaded = true; renderReporte(); }
+  document.getElementById('reporteApp').innerHTML = '<div class="loading">⏳ Cargando datos...</div>';
+  renderReporte().catch(e => {
+    document.getElementById('reporteApp').innerHTML = '<div class="loading" style="color:#f4a035">❌ Error: ' + e.message + '</div>';
+  });
 }
 function cerrarReporte() {
   document.getElementById('reporteModal').style.display = 'none';
   document.body.style.overflow = '';
+  window._reporteLoaded = false;
 }
 
 /* firebaseConfig ya definido */
@@ -7070,7 +7077,13 @@ function fmt(n) {
 async function renderReporte() {
   await fetchTC();
 
-  const snap = await db.collection(getCollection()).get();
+  const _db = window._getDb ? window._getDb() : db;
+  if (!_db) {
+    document.getElementById('reporteApp').innerHTML = '<div class="loading" style="color:#f4a035">❌ Firebase no disponible. Recarga la página.</div>';
+    return;
+  }
+  const _col = window._getCollection ? window._getCollection() : 'isarack_orders';
+  const snap = await _db.collection(_col).get();
   const allOrders = snap.docs.map(d => d.data());
 
   // ── Misma lógica que updateStats ──
@@ -7226,9 +7239,7 @@ async function renderReporte() {
   \`;
 }
 
-renderReporte().catch(e => {
-  document.getElementById('reporteApp').innerHTML = `<div class="loading" style="color:#f4a035">❌ Error: ${e.message}</div>`;
-});
+// renderReporte se llama solo cuando el usuario abre el modal
 
 </script>
 
