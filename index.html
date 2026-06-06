@@ -6913,7 +6913,7 @@ async function renderReporte() {
     return { com, pct };
   }
 
-  const pagadas    = allOrders.filter(o => calcIsPagado(o));
+  const pagadas    = allOrders.filter(o => calcIsPagado(o) && o.facturaNum && o.facturaNum.trim() !== '' && o.facturaNum.trim().toLowerCase() !== 's/fac');
   const pendientes = allOrders.filter(o => !calcIsPagado(o));
 
   // Totales de ganancias (misma lógica que barra superior)
@@ -6933,17 +6933,17 @@ async function renderReporte() {
     const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
     const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
     const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
-    return \`
+    return `
     <tr>
-      <td><strong>\${o.odoo || '—'}</strong></td>
-      <td>\${o.factura || '<span style="color:#888">s/fac</span>'}</td>
-      <td>\${o.cliente || '—'}</td>
-      <td style="text-align:right">\${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
-      <td style="text-align:right">\${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
-      <td style="text-align:center"><span class="badge badge-orange">\${pct.toFixed(2)}%</span></td>
-      <td style="text-align:right;color:#4caf50"><strong>$\${fmt(totalEnMXN)} MXN</strong></td>
+      <td><strong>${o.odoo || '—'}</strong></td>
+      <td>${o.factura || '<span style="color:#888">s/fac</span>'}</td>
+      <td>${o.cliente || '—'}</td>
+      <td style="text-align:right">${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
+      <td style="text-align:right">${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
+      <td style="text-align:center"><span class="badge badge-orange">${pct.toFixed(2)}%</span></td>
+      <td style="text-align:right;color:#4caf50"><strong>$${fmt(totalEnMXN)} MXN</strong></td>
       <td><span class="badge badge-green">✓ Pagado</span></td>
-    </tr>\`;
+    </tr>`;
   }).join('');
 
   const pendientesRows = pendientes.map(o => {
@@ -6953,31 +6953,31 @@ async function renderReporte() {
     const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
     const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
     const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
-    return \`
+    return `
     <tr>
-      <td><strong>\${o.odoo || '—'}</strong></td>
-      <td>\${o.factura || '<span style="color:#888">s/fac</span>'}</td>
-      <td>\${o.cliente || '—'}</td>
-      <td style="text-align:right">\${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
-      <td style="text-align:right">\${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
-      <td style="text-align:center"><span class="badge badge-orange">\${pct.toFixed(2)}%</span></td>
-      <td style="text-align:right;color:#888">$\${fmt(totalEnMXN)} MXN</td>
+      <td><strong>${o.odoo || '—'}</strong></td>
+      <td>${o.factura || '<span style="color:#888">s/fac</span>'}</td>
+      <td>${o.cliente || '—'}</td>
+      <td style="text-align:right">${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
+      <td style="text-align:right">${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
+      <td style="text-align:center"><span class="badge badge-orange">${pct.toFixed(2)}%</span></td>
+      <td style="text-align:right;color:#888">$${fmt(totalEnMXN)} MXN</td>
       <td><span class="badge badge-gray">Pendiente</span></td>
-    </tr>\`;
+    </tr>`;
   }).join('');
 
-  document.getElementById('reporteApp').innerHTML = \`
+  document.getElementById('reporteApp').innerHTML = `
     <div class="resumen">
       <!-- COL 1: Conteo -->
       <div class="resumen-col">
         <div class="resumen-bloque">
           <div class="rb-label">Órdenes Pagadas</div>
-          <div class="rb-main green">\${pagadas.length}</div>
-          <div class="rb-sub">de \${allOrders.length} totales en el período</div>
+          <div class="rb-main green">${pagadas.length}</div>
+          <div class="rb-sub">de ${allOrders.length} totales en el período</div>
         </div>
         <div class="resumen-bloque">
           <div class="rb-label">Órdenes Pendientes</div>
-          <div class="rb-main orange">\${pendientes.length}</div>
+          <div class="rb-main orange">${pendientes.length}</div>
           <div class="rb-sub">sin completar pago 100%</div>
         </div>
       </div>
@@ -6985,12 +6985,12 @@ async function renderReporte() {
       <div class="resumen-col">
         <div class="resumen-bloque">
           <div class="rb-label">TC DOF Aplicado</div>
-          <div class="rb-main white">$\${fmt(tcUsado)} MXN</div>
-          <div class="rb-sub">\${tcFecha || 'Fecha no disponible'}</div>
+          <div class="rb-main white">$${fmt(tcUsado)} MXN</div>
+          <div class="rb-sub">${tcFecha || 'Fecha no disponible'}</div>
         </div>
         <div class="resumen-bloque">
           <div class="rb-label">Ganancias S/Factura</div>
-          <div class="rb-main" style="color:#f4a035;">$\${fmt(totalGanSFMXN)} MXN</div>
+          <div class="rb-main" style="color:#f4a035;">$${fmt(totalGanSFMXN)} MXN</div>
           <div class="rb-sub">comisiones sin documento fiscal</div>
         </div>
       </div>
@@ -7000,14 +7000,14 @@ async function renderReporte() {
         <div class="rb-formula">
           Solo órdenes pagadas al 100% · monto × % · USD × TC DOF
         </div>
-        <div class="rb-total">$\${fmt(totalGanMXN)} MXN</div>
-        <div class="rb-sub">Con factura · TC $\${fmt(tcUsado)} · \${tcFecha||''}</div>
+        <div class="rb-total">$${fmt(totalGanMXN)} MXN</div>
+        <div class="rb-sub">Con factura · TC $${fmt(tcUsado)} · ${tcFecha||''}</div>
       </div>
     </div>
 
     <!-- TABLA PAGADAS -->
     <div class="section">
-      <div class="section-title">Órdenes Pagadas (\${pagadas.length})</div>
+      <div class="section-title">Órdenes Pagadas (${pagadas.length})</div>
       <table>
         <thead><tr>
           <th>ODOO</th><th>FACTURA</th><th>CLIENTE</th>
@@ -7018,10 +7018,10 @@ async function renderReporte() {
           <th>ESTADO</th>
         </tr></thead>
         <tbody>
-          \${rows}
+          ${rows}
           <tr class="total-row">
             <td colspan="6" style="text-align:right">TOTAL GANANCIAS</td>
-            <td style="text-align:right">$\${fmt(totalGanMXN)} MXN</td>
+            <td style="text-align:right">$${fmt(totalGanMXN)} MXN</td>
             <td></td>
           </tr>
         </tbody>
@@ -7030,7 +7030,7 @@ async function renderReporte() {
 
     <!-- TABLA PENDIENTES -->
     <div class="section">
-      <div class="section-title">Órdenes Pendientes (\${pendientes.length})</div>
+      <div class="section-title">Órdenes Pendientes (${pendientes.length})</div>
       <table>
         <thead><tr>
           <th>ODOO</th><th>FACTURA</th><th>CLIENTE</th>
@@ -7040,10 +7040,10 @@ async function renderReporte() {
           <th style="text-align:right">COMISIÓN EST. MXN</th>
           <th>ESTADO</th>
         </tr></thead>
-        <tbody>\${pendientesRows}</tbody>
+        <tbody>${pendientesRows}</tbody>
       </table>
     </div>
-  \`;
+  `;
 }
 
 renderReporte().catch(e => {
