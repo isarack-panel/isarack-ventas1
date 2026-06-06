@@ -521,8 +521,10 @@
     z-index: 50;
   }
   thead th {
-    background: #2a2a2a;
+    background: #2a2a2a !important;
+    background-color: #2a2a2a !important;
     border-bottom: 2px solid #1a1a1a;
+    box-shadow: 0 2px 0 #1a1a1a;
   }
   #filterRow {
     position: sticky;
@@ -531,6 +533,7 @@
   }
   #filterRow td {
     background: #2e2e2e !important;
+    background-color: #2e2e2e !important;
     border-top: 0;
     border-bottom: 1px solid #1a1a1a;
   }
@@ -7055,16 +7058,16 @@ async function renderReporte() {
       </table>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:20px;padding-top:12px;max-width:600px;margin-left:auto;margin-right:auto">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:8px;padding-top:4px;max-width:500px;margin-left:auto;margin-right:auto">
       <div style="text-align:center">
-        <div style="border-top:1px solid #555;margin-bottom:5px;margin-top:40px"></div>
-        <div style="font-size:9px;font-weight:700;color:#e8e0d0">Daniel Osuna Rueda</div>
-        <div style="font-size:8px;color:#888">Vendedor</div>
+        <div style="border-top:1px solid #aaa;margin-bottom:3px;margin-top:16px"></div>
+        <div style="font-size:8px;font-weight:700;color:#111">Daniel Osuna Rueda</div>
+        <div style="font-size:7px;color:#555">Vendedor</div>
       </div>
       <div style="text-align:center">
-        <div style="border-top:1px solid #555;margin-bottom:5px;margin-top:40px"></div>
-        <div style="font-size:9px;font-weight:700;color:#e8e0d0">Gildardo Osuna Rueda</div>
-        <div style="font-size:8px;color:#888">CEO</div>
+        <div style="border-top:1px solid #aaa;margin-bottom:3px;margin-top:16px"></div>
+        <div style="font-size:8px;font-weight:700;color:#111">Gildardo Osuna Rueda</div>
+        <div style="font-size:7px;color:#555">CEO</div>
       </div>
     </div>
   `;
@@ -7212,7 +7215,7 @@ async function renderReporte() {
     header .periodo { color: #f4a035 !important; font-size: 0.75rem !important; }
     header .fecha { color: #ccc !important; }
 
-    .resumen { padding: 0 0 5px 0; gap: 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .resumen { padding: 0 0 3px 0; gap: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .resumen-bloque { background: #faf8f4 !important; border: 1px solid #ddd !important; padding: 3px 8px; }
     .resumen-bloque .rb-label { color: #888 !important; font-size: 0.55rem !important; }
     .resumen-bloque .rb-main { color: #111 !important; font-size: 0.85rem !important; }
@@ -7226,7 +7229,7 @@ async function renderReporte() {
     .resumen-gran .rb-total { color: #2e7d32 !important; font-size: 1.1rem !important; }
     .resumen-gran .rb-sub { color: #888 !important; font-size: 0.55rem !important; }
 
-    .section { padding: 0 0 5px 0; }
+    .section { padding: 0 0 3px 0; }
     .section-title { color: #666 !important; font-size: 0.55rem !important; border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 3px; }
     .section-title::after { display: none; }
 
