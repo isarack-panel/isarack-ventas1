@@ -146,9 +146,9 @@
     background: #f5f5f5; border-bottom: 1px solid #ddd;
     transition: background .15s;
   }
-  tbody tr.data-row:hover { background: inherit; }
+  tbody tr.data-row:hover { background: transparent !important; }
   tbody tr.data-row td {
-    padding: 6px 6px; border-right: 1px solid #ddd;
+    padding: 6px 6px; border-right: none;
     text-align: center; color: #222; vertical-align: middle;
   }
   tbody tr.data-row td:last-child { border-right: none; }
@@ -390,7 +390,7 @@
     background: #d4f5d4 !important;
     border-bottom-color: #9ed89e !important;
   }
-  tbody tr.data-row.row-complete:hover td { background: inherit !important; }
+  tbody tr.data-row.row-complete:hover td { background: transparent !important; }
   tbody tr.data-row.row-complete .cell-odoo-num { color: #145214; font-weight: 800; }
   tbody tr.data-row.row-complete .cell-client   { color: #145214; }
   tbody tr.data-row.row-complete .amount-dlls   { color: #145214; }
@@ -6913,7 +6913,7 @@ async function renderReporte() {
     return { com, pct };
   }
 
-  const pagadas    = allOrders.filter(o => calcIsPagado(o) && o.facturaNum && o.facturaNum.trim() !== '' && o.facturaNum.trim().toLowerCase() !== 's/fac');
+  const pagadas    = allOrders.filter(o => calcIsPagado(o));
   const pendientes = allOrders.filter(o => !calcIsPagado(o));
 
   // Totales de ganancias (misma lógica que barra superior)
@@ -7139,7 +7139,7 @@ renderReporte().catch(e => {
     border-bottom: 1px solid #2e2618;
   }
   td { padding: 10px 12px; border-bottom: 1px solid #1c1a16; }
-  tr:hover td { background: inherit; }
+  tr:hover td { background: transparent !important; }
 
   .badge { display:inline-block; padding:3px 10px; border-radius:10px; font-size:0.72rem; font-weight:600; }
   .badge-green { background:rgba(76,175,80,0.1); color:#4caf50; border:1px solid rgba(76,175,80,0.25); }
