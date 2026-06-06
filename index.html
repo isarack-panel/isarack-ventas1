@@ -7043,6 +7043,19 @@ async function renderReporte() {
         <tbody>${pendientesRows}</tbody>
       </table>
     </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:20px;padding-top:12px;max-width:600px;margin-left:auto;margin-right:auto">
+      <div style="text-align:center">
+        <div style="border-top:1px solid #555;margin-bottom:5px;margin-top:40px"></div>
+        <div style="font-size:9px;font-weight:700;color:#e8e0d0">Daniel Osuna Rueda</div>
+        <div style="font-size:8px;color:#888">Vendedor</div>
+      </div>
+      <div style="text-align:center">
+        <div style="border-top:1px solid #555;margin-bottom:5px;margin-top:40px"></div>
+        <div style="font-size:9px;font-weight:700;color:#e8e0d0">Gildardo Osuna Rueda</div>
+        <div style="font-size:8px;color:#888">CEO</div>
+      </div>
+    </div>
   `;
 }
 
@@ -7151,9 +7164,8 @@ renderReporte().catch(e => {
 
   /* ── PRINT ── */
   @media print {
-    @page { size: letter landscape; margin: 0.5cm 0.8cm; }
+    @page { size: letter landscape; margin: 0.4cm 0.6cm; }
 
-    /* Ocultar TODO excepto el reporte */
     body > *:not(#reporteModal) { display: none !important; }
     #reporteModal {
       display: block !important;
@@ -7175,73 +7187,50 @@ renderReporte().catch(e => {
       box-shadow: none !important;
     }
     .modal-header, .btn-print, button { display: none !important; }
-
-    /* Colores para impresión */
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
 
-    body { background: #fff !important; color: #1a1a1a !important; font-size: 8px; }
+    body { background: #fff !important; color: #111 !important; font-size: 7px; }
 
     header {
       background: #1a1208 !important;
       -webkit-print-color-adjust: exact; print-color-adjust: exact;
-      padding: 10px 16px;
+      padding: 5px 10px;
       border-bottom: 2px solid #f4a035 !important;
-      margin-bottom: 10px;
+      margin-bottom: 5px;
     }
-    header h1 { font-size: 0.9rem !important; color: #fff !important; }
-    header .periodo { color: #f4a035 !important; font-size: 0.8rem !important; }
+    header h1 { font-size: 0.8rem !important; color: #fff !important; }
+    header .periodo { color: #f4a035 !important; font-size: 0.75rem !important; }
     header .fecha { color: #ccc !important; }
 
-    .resumen { padding: 0 0 10px 0; gap: 8px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .resumen-bloque { background: #faf8f4 !important; border: 1px solid #ddd !important; padding: 4px 8px; }
-    .resumen-bloque .rb-label { color: #888 !important; font-size: 0.6rem !important; }
-    .resumen-bloque .rb-main { color: #111 !important; font-size: 1rem !important; }
+    .resumen { padding: 0 0 5px 0; gap: 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .resumen-bloque { background: #faf8f4 !important; border: 1px solid #ddd !important; padding: 3px 8px; }
+    .resumen-bloque .rb-label { color: #888 !important; font-size: 0.55rem !important; }
+    .resumen-bloque .rb-main { color: #111 !important; font-size: 0.85rem !important; }
     .resumen-bloque .rb-main.green { color: #2e7d32 !important; }
     .resumen-bloque .rb-main.orange { color: #e65100 !important; }
-    .resumen-bloque .rb-sub { color: #888 !important; font-size: 0.6rem !important; }
+    .resumen-bloque .rb-sub { color: #888 !important; font-size: 0.55rem !important; }
 
-    .resumen-gran { background: #f0faf0 !important; border: 1.5px solid #4caf50 !important; padding: 5px 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .resumen-gran .rb-label { color: #888 !important; font-size: 0.6rem !important; }
-    .resumen-gran .rb-formula { color: #555 !important; font-size: 0.62rem !important; }
-    .resumen-gran .rb-total { color: #2e7d32 !important; font-size: 1rem !important; }
-    .resumen-gran .rb-sub { color: #888 !important; font-size: 0.6rem !important; }
+    .resumen-gran { background: #f0faf0 !important; border: 1.5px solid #4caf50 !important; padding: 4px 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .resumen-gran .rb-label { color: #888 !important; font-size: 0.55rem !important; }
+    .resumen-gran .rb-formula { color: #555 !important; font-size: 0.55rem !important; }
+    .resumen-gran .rb-total { color: #2e7d32 !important; font-size: 1.1rem !important; }
+    .resumen-gran .rb-sub { color: #888 !important; font-size: 0.55rem !important; }
 
-    .section { padding: 0 0 10px 0; }
-    .section-title { color: #666 !important; font-size: 0.6rem !important; border-bottom: 1px solid #ddd; padding-bottom: 3px; margin-bottom: 6px; }
+    .section { padding: 0 0 5px 0; }
+    .section-title { color: #666 !important; font-size: 0.55rem !important; border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 3px; }
     .section-title::after { display: none; }
 
-    table { font-size: 7.5px !important; width: 100%; border-collapse: collapse; }
-    th { padding: 3px 5px; background: #f5f0e8 !important; color: #666 !important; border: 1px solid #ddd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size:6.5px; }
-    td { padding: 4px 6px; border-bottom: 1px solid #eee !important; color: #1a1a1a !important; }
+    table { font-size: 6.5px !important; width: 100%; border-collapse: collapse; }
+    th { padding: 2px 4px; background: #f5f0e8 !important; color: #666 !important; border-bottom: 1px solid #f4a035 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 6px !important; }
+    td { padding: 1.5px 4px; border-bottom: 1px solid #eee !important; color: #111 !important; font-size: 6.5px !important; }
     thead { display: table-header-group; }
     tr { page-break-inside: avoid; }
 
-    .badge { border: 1px solid #ccc !important; color: #333 !important; background: #f5f5f5 !important; font-size: 7px !important; padding: 1px 4px !important; }
+    .badge { border: 1px solid #ccc !important; color: #333 !important; background: #f5f5f5 !important; font-size: 6px !important; padding: 0px 3px !important; }
     .badge-green { border-color: #4caf50 !important; color: #2e7d32 !important; background: #f0faf0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .badge-orange { border-color: #e65100 !important; color: #e65100 !important; }
     .badge-gray { color: #888 !important; }
 
-    .total-row td { background: #e8f5e9 !important; color: #2e7d32 !important; font-weight: 700; border-top: 1.5px solid #4caf50 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .total-row td { background: #e8f5e9 !important; color: #2e7d32 !important; font-weight: 700; border-top: 1px solid #4caf50 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 2px 4px !important; }
     .btn-print { display: none !important; }
-  }
-
-  .btn-print {
-    position: fixed; bottom: 24px; right: 24px;
-    background: #f4a035; color: #fff; border: none;
-    padding: 12px 24px; border-radius: 8px;
-    font-size: 0.9rem; font-weight: 600; cursor: pointer;
-    box-shadow: 0 4px 16px rgba(244,160,53,0.3);
-    font-family: inherit; letter-spacing: 0.5px;
-    transition: background 0.2s;
-  }
-  .btn-print:hover { background: #d4850a; }
-  @media print { .btn-print { display: none; } }
-</style>
-  <div id="reporteApp"><div class="loading">⏳ Cargando datos...</div></div>
-  <button onclick="window.print()" style="position:fixed;bottom:24px;right:24px;background:#f4a035;color:#fff;border:none;padding:10px 22px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(244,160,53,0.3);font-family:inherit;">🖨️ Imprimir</button>
-</div>
-
-
-
-</body>
-</html>
+  }>
