@@ -6890,8 +6890,19 @@ function fmt(n) {
 async function renderReporte() {
   await fetchTC();
 
-  const snap = await db.collection(getCollection()).get();
-  const allOrders = snap.docs.map(d => d.data());
+  if (!db) throw new Error('Firebase no disponible. Recarga la página.');
+  
+  let allOrders = [];
+  let lastDoc = null;
+  while (true) {
+    let q = db.collection(getCollection()).limit(500);
+    if (lastDoc) q = q.startAfter(lastDoc);
+    const snap = await q.get();
+    if (snap.empty) break;
+    snap.docs.forEach(d => allOrders.push(d.data()));
+    if (snap.docs.length < 500) break;
+    lastDoc = snap.docs[snap.docs.length - 1];
+  }
 
   // ── Misma lógica que updateStats ──
   const tc = tcDOF || 0;
@@ -7059,9 +7070,7 @@ async function renderReporte() {
   `;
 }
 
-renderReporte().catch(e => {
-  document.getElementById('reporteApp').innerHTML = `<div class="loading" style="color:#f4a035">❌ Error: ${e.message}</div>`;
-});
+// renderReporte se llama desde abrirReporte()
 
 </script>
 
