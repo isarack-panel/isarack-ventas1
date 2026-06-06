@@ -143,9 +143,10 @@
 
   /* DATA ROWS */
   tbody tr.data-row {
-    border-bottom: 1px solid #ddd;
+    background: var(--bg2, #1e1e1e);
+    border-bottom: 1px solid #2a2a2a;
   }
-  tbody tr.data-row:hover { background: inherit !important; }
+  tbody tr.data-row:hover { background: var(--bg2, #1e1e1e) !important; }
   tbody tr.data-row td {
     padding: 6px 6px; border-right: none;
     text-align: center; color: #222; vertical-align: middle;
@@ -6935,7 +6936,7 @@ async function renderReporte() {
     return `
     <tr>
       <td><strong>${o.odoo || '—'}</strong></td>
-      <td>${o.factura || '<span style="color:#888">s/fac</span>'}</td>
+      <td>${o.facturaNum || o.factura || '<span style="color:#888">s/fac</span>'}</td>
       <td>${o.cliente || '—'}</td>
       <td style="text-align:right">${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
       <td style="text-align:right">${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
@@ -6955,7 +6956,7 @@ async function renderReporte() {
     return `
     <tr>
       <td><strong>${o.odoo || '—'}</strong></td>
-      <td>${o.factura || '<span style="color:#888">s/fac</span>'}</td>
+      <td>${o.facturaNum || o.factura || '<span style="color:#888">s/fac</span>'}</td>
       <td>${o.cliente || '—'}</td>
       <td style="text-align:right">${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
       <td style="text-align:right">${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
@@ -7150,7 +7151,7 @@ renderReporte().catch(e => {
 
   /* ── PRINT ── */
   @media print {
-    @page { size: A4 landscape; margin: 1cm 1.2cm; }
+    @page { size: letter landscape; margin: 0.5cm 0.8cm; }
 
     /* Ocultar TODO excepto el reporte */
     body > *:not(#reporteModal) { display: none !important; }
