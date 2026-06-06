@@ -525,6 +525,9 @@
     background-color: #2a2a2a !important;
     border-bottom: 2px solid #1a1a1a;
     box-shadow: 0 2px 0 #1a1a1a;
+    isolation: isolate;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
   #filterRow {
     position: sticky;
@@ -5732,15 +5735,24 @@ let _unused = 17.3213;
     role: 'admin'
   };
 
+  // Usuarios adicionales fijos
+  const EXTRA_USERS = [
+    { id: '6642708523', pwd: 'dany8523', name: 'Daniel Osuna', role: 'admin' },
+    { id: '6641236278', pwd: 'gil6278',  name: 'Gildardo Osuna', role: 'admin' },
+  ];
+
   function getUsers() {
     try {
       const raw = localStorage.getItem(USERS_KEY);
       const users = raw ? JSON.parse(raw) : [];
-      // El admin siempre está (aunque no esté guardado)
-      const hasAdmin = users.some(u => u.id === DEFAULT_ADMIN.id);
-      if (!hasAdmin) users.unshift({ ...DEFAULT_ADMIN });
+      // Admin siempre existe
+      if (!users.some(u => u.id === DEFAULT_ADMIN.id)) users.unshift({ ...DEFAULT_ADMIN });
+      // Usuarios fijos adicionales
+      EXTRA_USERS.forEach(eu => {
+        if (!users.some(u => u.id === eu.id && u.pwd === eu.pwd)) users.push({ ...eu });
+      });
       return users;
-    } catch(e) { return [{ ...DEFAULT_ADMIN }]; }
+    } catch(e) { return [{ ...DEFAULT_ADMIN }, ...EXTRA_USERS]; }
   }
 
   function saveUsers(users) {
@@ -7058,16 +7070,16 @@ async function renderReporte() {
       </table>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:8px;padding-top:4px;max-width:500px;margin-left:auto;margin-right:auto">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:6px;padding-top:3px;max-width:480px;margin-left:auto;margin-right:auto">
       <div style="text-align:center">
-        <div style="border-top:1px solid #aaa;margin-bottom:3px;margin-top:16px"></div>
-        <div style="font-size:8px;font-weight:700;color:#111">Daniel Osuna Rueda</div>
-        <div style="font-size:7px;color:#555">Vendedor</div>
+        <div style="border-top:1px solid #333;margin-bottom:3px;margin-top:18px"></div>
+        <div style="font-size:7.5px;font-weight:700;color:#111">Daniel Osuna Rueda</div>
+        <div style="font-size:6.5px;color:#444">Vendedor</div>
       </div>
       <div style="text-align:center">
-        <div style="border-top:1px solid #aaa;margin-bottom:3px;margin-top:16px"></div>
-        <div style="font-size:8px;font-weight:700;color:#111">Gildardo Osuna Rueda</div>
-        <div style="font-size:7px;color:#555">CEO</div>
+        <div style="border-top:1px solid #333;margin-bottom:3px;margin-top:18px"></div>
+        <div style="font-size:7.5px;font-weight:700;color:#111">Gildardo Osuna Rueda</div>
+        <div style="font-size:6.5px;color:#444">CEO</div>
       </div>
     </div>
   `;
@@ -7215,7 +7227,7 @@ async function renderReporte() {
     header .periodo { color: #f4a035 !important; font-size: 0.75rem !important; }
     header .fecha { color: #ccc !important; }
 
-    .resumen { padding: 0 0 3px 0; gap: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .resumen { padding: 0 0 2px 0; gap: 2px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .resumen-bloque { background: #faf8f4 !important; border: 1px solid #ddd !important; padding: 3px 8px; }
     .resumen-bloque .rb-label { color: #888 !important; font-size: 0.55rem !important; }
     .resumen-bloque .rb-main { color: #111 !important; font-size: 0.85rem !important; }
@@ -7234,8 +7246,8 @@ async function renderReporte() {
     .section-title::after { display: none; }
 
     table { font-size: 6.5px !important; width: 100%; border-collapse: collapse; }
-    th { padding: 2px 4px; background: #f5f0e8 !important; color: #666 !important; border-bottom: 1px solid #f4a035 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 6px !important; }
-    td { padding: 1.5px 4px; border-bottom: 1px solid #eee !important; color: #111 !important; font-size: 6.5px !important; }
+    th { padding: 1px 3px; background: #f5f0e8 !important; color: #666 !important; border-bottom: 1px solid #f4a035 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 6px !important; }
+    td { padding: 1px 3px; border-bottom: 1px solid #eee !important; color: #111 !important; font-size: 6px !important; }
     thead { display: table-header-group; }
     tr { page-break-inside: avoid; }
 
