@@ -6905,9 +6905,8 @@ function fmt(n) {
 
 async function renderReporte() {
   await fetchTC();
-
   if (!db) throw new Error('Firebase no disponible. Recarga la página.');
-  
+
   let allOrders = [];
   let lastDoc = null;
   while (true) {
@@ -6920,16 +6919,13 @@ async function renderReporte() {
     lastDoc = snap.docs[snap.docs.length - 1];
   }
 
-  // ── Misma lógica que updateStats ──
   const tc = tcDOF || 0;
-  const tcUsado = tc > 0 ? tc : 17.2400;
+  const tcUsado = tc > 0 ? tc : 17.24;
 
   function calcIsPagado(o) {
     const pagos = Array.isArray(o.pagos) ? o.pagos : (o.pagos ? Object.values(o.pagos) : []);
     const totalPagoPct = pagos.reduce((s, p) => s + (Number(p.pct) || 0), 0);
-    const isPagadoNuevo = totalPagoPct >= 100;
-    const isPagadoViejo = !!(o.fechaPago) && pagos.length === 0;
-    return isPagadoNuevo || isPagadoViejo;
+    return totalPagoPct >= 100 || (!!(o.fechaPago) && pagos.length === 0);
   }
 
   function calcComMXN(o) {
@@ -6940,136 +6936,88 @@ async function renderReporte() {
     return { com, pct };
   }
 
-  const pagadas    = allOrders.filter(o => calcIsPagado(o) && o.facturaNum && o.facturaNum.trim() !== '' && o.facturaNum.trim().toLowerCase() !== 's/fac');
-  const pendientes = allOrders.filter(o => !calcIsPagado(o));
+  function fmtR(n) {
+    return Number(n||0).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
 
-  // Totales de ganancias (misma lógica que barra superior)
-  let totalGanMXN    = 0; // CON factura
-  let totalGanSFMXN  = 0; // SIN factura
+  // Solo pagadas CON factura real
+  const pagadas = allOrders.filter(o => {
+    const fac = (o.facturaNum || '').trim();
+    return calcIsPagado(o) && fac && fac.toLowerCase() !== 's/fac' && !o.sinFactura;
+  });
 
+  let totalGanMXN = 0;
   pagadas.forEach(o => {
     const { com } = calcComMXN(o);
-    if (o.sinFactura) totalGanSFMXN += com;
-    else              totalGanMXN   += com;
+    totalGanMXN += com;
   });
+
+  const pendientes = allOrders.filter(o => !calcIsPagado(o));
 
   const rows = pagadas.map(o => {
     const { com, pct } = calcComMXN(o);
-    const montoMXN  = parseFloat(o.pesos || 0);
-    const montoDlls = parseFloat(o.dlls  || 0);
-    const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
-    const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
-    const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
-    return `
-    <tr>
-      <td><strong>${o.odoo || '—'}</strong></td>
-      <td>${o.facturaNum || o.factura || '<span style="color:#888">s/fac</span>'}</td>
+    const dlls  = parseFloat(o.dlls  || 0);
+    const pesos = parseFloat(o.pesos || 0);
+    return `<tr>
+      <td>${o.odoo || '—'}</td>
+      <td style="color:#c45a00;font-weight:600">${o.facturaNum || '—'}</td>
       <td>${o.cliente || '—'}</td>
-      <td style="text-align:right">${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
-      <td style="text-align:right">${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
-      <td style="text-align:center"><span class="badge badge-orange">${pct.toFixed(2)}%</span></td>
-      <td style="text-align:right;color:#4caf50"><strong>$${fmt(totalEnMXN)} MXN</strong></td>
-      <td><span class="badge badge-green">✓ Pagado</span></td>
-    </tr>`;
-  }).join('');
-
-  const pendientesRows = pendientes.map(o => {
-    const { com, pct } = calcComMXN(o);
-    const montoMXN  = parseFloat(o.pesos || 0);
-    const montoDlls = parseFloat(o.dlls  || 0);
-    const comDllsPart  = montoDlls > 0 ? (montoDlls * (pct/100)) : 0;
-    const comPesosPart = montoMXN  > 0 ? (montoMXN  * (pct/100)) : 0;
-    const totalEnMXN   = comDllsPart * tcUsado + comPesosPart;
-    return `
-    <tr>
-      <td><strong>${o.odoo || '—'}</strong></td>
-      <td>${o.facturaNum || o.factura || '<span style="color:#888">s/fac</span>'}</td>
-      <td>${o.cliente || '—'}</td>
-      <td style="text-align:right">${montoDlls > 0 ? '$' + fmt(montoDlls) + ' USD' : '—'}</td>
-      <td style="text-align:right">${montoMXN  > 0 ? '$' + fmt(montoMXN)  + ' MXN' : '—'}</td>
-      <td style="text-align:center"><span class="badge badge-orange">${pct.toFixed(2)}%</span></td>
-      <td style="text-align:right;color:#888">$${fmt(totalEnMXN)} MXN</td>
-      <td><span class="badge badge-gray">Pendiente</span></td>
+      <td style="text-align:right">${dlls  > 0 ? '$' + fmtR(dlls)  + ' USD' : '—'}</td>
+      <td style="text-align:right">${pesos > 0 ? '$' + fmtR(pesos) + ' MXN' : '—'}</td>
+      <td style="text-align:center">${pct.toFixed(2)}%</td>
+      <td style="text-align:right;color:#2e7d32;font-weight:700">$${fmtR(com)}</td>
+      <td style="text-align:center;color:#2e7d32">✓</td>
     </tr>`;
   }).join('');
 
   document.getElementById('reporteApp').innerHTML = `
-    <div class="resumen">
-      <!-- COL 1: Conteo -->
-      <div class="resumen-col">
-        <div class="resumen-bloque">
-          <div class="rb-label">Órdenes Pagadas</div>
-          <div class="rb-main green">${pagadas.length}</div>
-          <div class="rb-sub">de ${allOrders.length} totales en el período</div>
-        </div>
-        <div class="resumen-bloque">
-          <div class="rb-label">Órdenes Pendientes</div>
-          <div class="rb-main orange">${pendientes.length}</div>
-          <div class="rb-sub">sin completar pago 100%</div>
-        </div>
-      </div>
-      <!-- COL 2: TC DOF -->
-      <div class="resumen-col">
-        <div class="resumen-bloque">
-          <div class="rb-label">TC DOF Aplicado</div>
-          <div class="rb-main white">$${fmt(tcUsado)} MXN</div>
-          <div class="rb-sub">${tcFecha || 'Fecha no disponible'}</div>
-        </div>
-        <div class="resumen-bloque">
-          <div class="rb-label">Ganancias S/Factura</div>
-          <div class="rb-main" style="color:#f4a035;">$${fmt(totalGanSFMXN)} MXN</div>
-          <div class="rb-sub">comisiones sin documento fiscal</div>
-        </div>
-      </div>
-      <!-- COL 3: Total Ganancias (MISMO que barra superior) -->
-      <div class="resumen-gran">
-        <div class="rb-label">Ganancias Totales — Mismo cálculo que barra superior</div>
-        <div class="rb-formula">
-          Solo órdenes pagadas al 100% · monto × % · USD × TC DOF
-        </div>
-        <div class="rb-total">$${fmt(totalGanMXN)} MXN</div>
-        <div class="rb-sub">Con factura · TC $${fmt(tcUsado)} · ${tcFecha||''}</div>
-      </div>
+    <div style="background:#1a1208;padding:5px 12px;border-bottom:2px solid #f4a035;display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+      <div><div style="font-size:13px;font-weight:800;color:#f4a035">ISA RACK SA</div><div style="font-size:6px;color:#7a6a50;letter-spacing:2px">CONTROL DE VENTAS</div></div>
+      <div style="text-align:center"><div style="font-size:11px;font-weight:700;color:#fff">📋 REPORTE ${bimestreActivo || 'ABR-MAY 2026'}</div><div style="font-size:6px;color:#aaa">${currentUser ? currentUser.name : 'Admin'} · ${new Date().toLocaleDateString('es-MX')}</div></div>
+      <div style="text-align:right;font-size:6px;color:#aaa">TC DOF: <strong style="color:#fff">$${fmtR(tcUsado)} MXN</strong></div>
     </div>
 
-    <!-- TABLA PAGADAS -->
-    <div class="section">
-      <div class="section-title">Órdenes Pagadas (${pagadas.length})</div>
-      <table>
-        <thead><tr>
-          <th>ODOO</th><th>FACTURA</th><th>CLIENTE</th>
-          <th style="text-align:right">DLLS</th>
-          <th style="text-align:right">PESOS</th>
-          <th style="text-align:center">%</th>
-          <th style="text-align:right">COMISIÓN MXN</th>
-          <th>ESTADO</th>
-        </tr></thead>
-        <tbody>
-          ${rows}
-          <tr class="total-row">
-            <td colspan="6" style="text-align:right">TOTAL GANANCIAS</td>
-            <td style="text-align:right">$${fmt(totalGanMXN)} MXN</td>
-            <td></td>
-          </tr>
-        </tbody>
-      </table>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1.8fr;gap:3px;margin-bottom:5px">
+      <div style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:2px 6px"><div style="font-size:5px;color:#7a6a50;text-transform:uppercase">Órdenes Pagadas c/Factura</div><div style="font-size:15px;font-weight:800;color:#2e7d32">${pagadas.length}</div><div style="font-size:5px;color:#7a6a50">de ${allOrders.length} totales</div></div>
+      <div style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:2px 6px"><div style="font-size:5px;color:#7a6a50;text-transform:uppercase">Órdenes Pendientes</div><div style="font-size:15px;font-weight:800;color:#e65100">${pendientes.length}</div><div style="font-size:5px;color:#7a6a50">sin pago 100%</div></div>
+      <div style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:2px 6px"><div style="font-size:5px;color:#7a6a50;text-transform:uppercase">TC DOF</div><div style="font-size:11px;font-weight:800;color:#e8e0d0">$${fmtR(tcUsado)} MXN</div><div style="font-size:5px;color:#7a6a50">${tcFechaStr || ''}</div></div>
+      <div style="background:#0d2b0d;border:1.5px solid #4caf50;border-radius:3px;padding:2px 8px;position:relative"><div style="position:absolute;top:0;left:0;right:0;height:2px;background:#4caf50;border-radius:3px 3px 0 0"></div><div style="font-size:5px;color:#7a6a50;text-transform:uppercase">Comisiones Pagadas — Con Factura</div><div style="font-size:5px;color:#888;margin-bottom:2px">Pagadas al 100% · monto × % · USD × TC</div><div style="font-size:17px;font-weight:900;color:#4caf50;line-height:1">$${fmtR(totalGanMXN)} <span style="font-size:7px">MXN</span></div></div>
     </div>
 
-    <!-- FIRMAS -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin:14px auto 8px;max-width:500px;text-align:center;background:#fff;padding:4px 0">
-      <div style="background:#fff">
-        <div style="border-top:1px solid #333;margin-bottom:5px;margin-top:30px;background:#fff"></div>
-        <div style="font-size:9px;font-weight:700;color:#111 !important;background:#fff">Daniel Osuna Rueda</div>
-        <div style="font-size:8px;color:#444;background:#fff">Vendedor</div>
+    <div style="font-size:6px;font-weight:700;color:#4caf50;border-bottom:1px solid #2e2618;padding-bottom:2px;margin-bottom:3px">✅ ÓRDENES PAGADAS CON FACTURA (${pagadas.length})</div>
+    <table style="width:100%;border-collapse:collapse;font-size:7px">
+      <thead><tr style="background:#1c1a16">
+        <th style="padding:2px 4px;text-align:left;color:#f4a035;font-size:6px;border-bottom:1.5px solid #f4a035">ODOO</th>
+        <th style="padding:2px 4px;text-align:left;color:#f4a035;font-size:6px;border-bottom:1.5px solid #f4a035">FACTURA</th>
+        <th style="padding:2px 4px;text-align:left;color:#f4a035;font-size:6px;border-bottom:1.5px solid #f4a035">CLIENTE</th>
+        <th style="padding:2px 4px;text-align:right;color:#f4a035;font-size:6px;border-bottom:1.5px solid #f4a035">DLLS USD</th>
+        <th style="padding:2px 4px;text-align:right;color:#f4a035;font-size:6px;border-bottom:1.5px solid #f4a035">PESOS MXN</th>
+        <th style="padding:2px 4px;text-align:center;color:#f4a035;font-size:6px;border-bottom:1.5px solid #f4a035">%</th>
+        <th style="padding:2px 4px;text-align:right;color:#f4a035;font-size:6px;border-bottom:1.5px solid #f4a035">COMISIÓN MXN</th>
+        <th style="padding:2px 4px;text-align:center;color:#f4a035;font-size:6px;border-bottom:1.5px solid #f4a035">ESTADO</th>
+      </tr></thead>
+      <tbody style="color:#e8e0d0">${rows}
+        <tr style="background:#0d2b0d;border-top:1.5px solid #4caf50">
+          <td colspan="6" style="padding:3px 4px;text-align:right;color:#4caf50;font-weight:700;font-size:7px">TOTAL COMISIONES PAGADAS CON FACTURA</td>
+          <td style="padding:3px 4px;text-align:right;color:#4caf50;font-weight:800;font-size:8px">$${fmtR(totalGanMXN)} MXN</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin:20px auto 10px;max-width:500px;text-align:center">
+      <div>
+        <div style="border-top:1px solid #888;margin-bottom:5px;margin-top:35px"></div>
+        <div style="font-size:9px;font-weight:700;color:#e8e0d0">Daniel Osuna Rueda</div>
+        <div style="font-size:8px;color:#888">Vendedor</div>
       </div>
-      <div style="background:#fff">
-        <div style="border-top:1px solid #333;margin-bottom:5px;margin-top:30px;background:#fff"></div>
-        <div style="font-size:9px;font-weight:700;color:#111 !important;background:#fff">Gildardo Osuna Rueda</div>
-        <div style="font-size:8px;color:#444;background:#fff">CEO</div>
+      <div>
+        <div style="border-top:1px solid #888;margin-bottom:5px;margin-top:35px"></div>
+        <div style="font-size:9px;font-weight:700;color:#e8e0d0">Gildardo Osuna Rueda</div>
+        <div style="font-size:8px;color:#888">CEO</div>
       </div>
     </div>
-
-    `;
+  `;
 }
 
 // renderReporte se llama desde abrirReporte()
@@ -7177,7 +7125,7 @@ async function renderReporte() {
 
   /* ── PRINT ── */
   @media print {
-    @page { size: letter landscape; margin: 0.4cm 0.6cm; }
+    @page { size: A3 landscape; margin: 0.5cm 0.8cm; }
 
     body > *:not(#reporteModal) { display: none !important; }
     #reporteModal {
@@ -7215,15 +7163,15 @@ async function renderReporte() {
     header .periodo { color: #f4a035 !important; font-size: 0.75rem !important; }
     header .fecha { color: #ccc !important; }
 
-    .resumen { padding: 0 0 2px 0; gap: 2px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .resumen-bloque { background: #faf8f4 !important; border: 1px solid #ddd !important; padding: 3px 8px; }
+    .resumen { padding: 0 0 1px 0; gap: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .resumen-bloque { background: #faf8f4 !important; border: 1px solid #ddd !important; padding: 2px 6px; }
     .resumen-bloque .rb-label { color: #888 !important; font-size: 0.55rem !important; }
     .resumen-bloque .rb-main { color: #111 !important; font-size: 0.85rem !important; }
     .resumen-bloque .rb-main.green { color: #2e7d32 !important; }
     .resumen-bloque .rb-main.orange { color: #e65100 !important; }
     .resumen-bloque .rb-sub { color: #888 !important; font-size: 0.55rem !important; }
 
-    .resumen-gran { background: #f0faf0 !important; border: 1.5px solid #4caf50 !important; padding: 4px 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .resumen-gran { background: #f0faf0 !important; border: 1.5px solid #4caf50 !important; padding: 2px 8px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .resumen-gran .rb-label { color: #888 !important; font-size: 0.55rem !important; }
     .resumen-gran .rb-formula { color: #555 !important; font-size: 0.55rem !important; }
     .resumen-gran .rb-total { color: #2e7d32 !important; font-size: 1.1rem !important; }
@@ -7246,6 +7194,10 @@ async function renderReporte() {
 
     .total-row td { background: #e8f5e9 !important; color: #2e7d32 !important; font-weight: 700; border-top: 1px solid #4caf50 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 2px 4px !important; }
     .btn-print { display: none !important; }
+    /* Firmas - texto negro en impresión */
+    #reporteApp div[style*="color:#e8e0d0"] { color: #111 !important; }
+    #reporteApp div[style*="color:#888"] { color: #444 !important; }
+    #reporteApp div[style*="border-top:1px solid #888"] { border-top-color: #333 !important; }
     /* Firmas en impresión */
     #reporteApp div[style*="background:#fff"] { background: #fff !important; color: #111 !important; }
     #firmasReporte {
