@@ -7056,37 +7056,20 @@ async function renderReporte() {
     </div>
 
     <!-- FIRMAS -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin:10px auto 6px;max-width:500px;text-align:center">
-      <div>
-        <div style="border-top:1px solid #aaa;margin-bottom:4px;margin-top:28px"></div>
-        <div style="font-size:8px;font-weight:700;color:#111">Daniel Osuna Rueda</div>
-        <div style="font-size:7px;color:#555">Vendedor</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin:14px auto 8px;max-width:500px;text-align:center;background:#fff;padding:4px 0">
+      <div style="background:#fff">
+        <div style="border-top:1px solid #333;margin-bottom:5px;margin-top:30px;background:#fff"></div>
+        <div style="font-size:9px;font-weight:700;color:#111 !important;background:#fff">Daniel Osuna Rueda</div>
+        <div style="font-size:8px;color:#444;background:#fff">Vendedor</div>
       </div>
-      <div>
-        <div style="border-top:1px solid #aaa;margin-bottom:4px;margin-top:28px"></div>
-        <div style="font-size:8px;font-weight:700;color:#111">Gildardo Osuna Rueda</div>
-        <div style="font-size:7px;color:#555">CEO</div>
+      <div style="background:#fff">
+        <div style="border-top:1px solid #333;margin-bottom:5px;margin-top:30px;background:#fff"></div>
+        <div style="font-size:9px;font-weight:700;color:#111 !important;background:#fff">Gildardo Osuna Rueda</div>
+        <div style="font-size:8px;color:#444;background:#fff">CEO</div>
       </div>
     </div>
 
-    <!-- TABLA PENDIENTES -->
-    <div class="section">
-      <div class="section-title">Órdenes Pendientes (${pendientes.length})</div>
-      <table>
-        <thead><tr>
-          <th>ODOO</th><th>FACTURA</th><th>CLIENTE</th>
-          <th style="text-align:right">DLLS</th>
-          <th style="text-align:right">PESOS</th>
-          <th style="text-align:center">%</th>
-          <th style="text-align:right">COMISIÓN EST. MXN</th>
-          <th>ESTADO</th>
-        </tr></thead>
-        <tbody>${pendientesRows}</tbody>
-      </table>
-    </div>
-
-    
-  `;
+    `;
 }
 
 // renderReporte se llama desde abrirReporte()
@@ -7263,6 +7246,8 @@ async function renderReporte() {
 
     .total-row td { background: #e8f5e9 !important; color: #2e7d32 !important; font-weight: 700; border-top: 1px solid #4caf50 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 2px 4px !important; }
     .btn-print { display: none !important; }
+    /* Firmas en impresión */
+    #reporteApp div[style*="background:#fff"] { background: #fff !important; color: #111 !important; }
     #firmasReporte {
       display: grid !important;
       grid-template-columns: 1fr 1fr !important;
