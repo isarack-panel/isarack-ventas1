@@ -7131,7 +7131,7 @@ async function renderReporte() {
     #reporteModal {
       display: block !important;
       position: static !important;
-      background: #fff !important;
+      background: #0f0e0c !important;
       width: 100% !important;
       height: auto !important;
       overflow: visible !important;
@@ -7143,14 +7143,14 @@ async function renderReporte() {
       max-height: none !important;
       overflow: visible !important;
       border-radius: 0 !important;
-      background: #fff !important;
+      background: #0f0e0c !important;
       padding: 0 !important;
       box-shadow: none !important;
     }
     .modal-header, .btn-print, button { display: none !important; }
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
 
-    body { background: #fff !important; color: #111 !important; font-size: 7px; }
+    body { font-size: 7px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
     header {
       background: #1a1208 !important;
@@ -7195,9 +7195,7 @@ async function renderReporte() {
     .total-row td { background: #e8f5e9 !important; color: #2e7d32 !important; font-weight: 700; border-top: 1px solid #4caf50 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 2px 4px !important; }
     .btn-print { display: none !important; }
     /* Firmas - texto negro en impresión */
-    #reporteApp div[style*="color:#e8e0d0"] { color: #111 !important; }
-    #reporteApp div[style*="color:#888"] { color: #444 !important; }
-    #reporteApp div[style*="border-top:1px solid #888"] { border-top-color: #333 !important; }
+    
     /* Firmas en impresión */
     #reporteApp div[style*="background:#fff"] { background: #fff !important; color: #111 !important; }
     #firmasReporte {
