@@ -7126,12 +7126,11 @@ async function renderReporte() {
   /* ── PRINT ── */
   @media print {
     @page { size: A3 landscape; margin: 0.5cm 0.8cm; }
-
     body > *:not(#reporteModal) { display: none !important; }
     #reporteModal {
       display: block !important;
       position: static !important;
-      background: #0f0e0c !important;
+      background: #fff !important;
       width: 100% !important;
       height: auto !important;
       overflow: visible !important;
@@ -7143,78 +7142,24 @@ async function renderReporte() {
       max-height: none !important;
       overflow: visible !important;
       border-radius: 0 !important;
-      background: #0f0e0c !important;
+      background: #fff !important;
       padding: 0 !important;
       box-shadow: none !important;
     }
     .modal-header, .btn-print, button { display: none !important; }
-    -webkit-print-color-adjust: exact; print-color-adjust: exact;
-
-    body { font-size: 7px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-    header {
-      background: #1a1208 !important;
-      -webkit-print-color-adjust: exact; print-color-adjust: exact;
-      padding: 5px 10px;
-      border-bottom: 2px solid #f4a035 !important;
-      margin-bottom: 5px;
-    }
-    header h1 { font-size: 0.8rem !important; color: #fff !important; }
-    header .periodo { color: #f4a035 !important; font-size: 0.75rem !important; }
-    header .fecha { color: #ccc !important; }
-
-    .resumen { padding: 0 0 1px 0; gap: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .resumen-bloque { background: #faf8f4 !important; border: 1px solid #ddd !important; padding: 2px 6px; }
-    .resumen-bloque .rb-label { color: #888 !important; font-size: 0.55rem !important; }
-    .resumen-bloque .rb-main { color: #111 !important; font-size: 0.85rem !important; }
-    .resumen-bloque .rb-main.green { color: #2e7d32 !important; }
-    .resumen-bloque .rb-main.orange { color: #e65100 !important; }
-    .resumen-bloque .rb-sub { color: #888 !important; font-size: 0.55rem !important; }
-
-    .resumen-gran { background: #f0faf0 !important; border: 1.5px solid #4caf50 !important; padding: 2px 8px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .resumen-gran .rb-label { color: #888 !important; font-size: 0.55rem !important; }
-    .resumen-gran .rb-formula { color: #555 !important; font-size: 0.55rem !important; }
-    .resumen-gran .rb-total { color: #2e7d32 !important; font-size: 1.1rem !important; }
-    .resumen-gran .rb-sub { color: #888 !important; font-size: 0.55rem !important; }
-
-    .section { padding: 0 0 3px 0; }
-    .section-title { color: #666 !important; font-size: 0.55rem !important; border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 3px; }
-    .section-title::after { display: none; }
-
-    table { font-size: 6.5px !important; width: 100%; border-collapse: collapse; }
-    th { padding: 1px 3px; background: #f5f0e8 !important; color: #666 !important; border-bottom: 1px solid #f4a035 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 6px !important; }
-    td { padding: 1px 3px; border-bottom: 1px solid #eee !important; color: #111 !important; font-size: 6px !important; }
-    thead { display: table-header-group; }
-    tr { page-break-inside: avoid; }
-
-    .badge { border: 1px solid #ccc !important; color: #333 !important; background: #f5f5f5 !important; font-size: 6px !important; padding: 0px 3px !important; }
-    .badge-green { border-color: #4caf50 !important; color: #2e7d32 !important; background: #f0faf0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .badge-orange { border-color: #e65100 !important; color: #e65100 !important; }
-    .badge-gray { color: #888 !important; }
-
-    .total-row td { background: #e8f5e9 !important; color: #2e7d32 !important; font-weight: 700; border-top: 1px solid #4caf50 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 2px 4px !important; }
+    body { background: #fff !important; color: #111 !important; font-size: 7px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* Colores para impresión - iguales al preview */
+    #reporteApp * { color: #111 !important; }
+    #reporteApp [style*="color:#4caf50"] { color: #2e7d32 !important; }
+    #reporteApp [style*="color:#f4a035"] { color: #c45a00 !important; }
+    #reporteApp [style*="color:#e8e0d0"] { color: #111 !important; }
+    #reporteApp [style*="color:#888"] { color: #555 !important; }
+    #reporteApp [style*="color:#e65100"] { color: #e65100 !important; }
+    #reporteApp [style*="color:#2e7d32"] { color: #2e7d32 !important; }
+    #reporteApp [style*="background:#0d2b0d"] { background: #e8f5e9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    #reporteApp [style*="background:#1c1a16"] { background: #f5f0e8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    #reporteApp table { font-size: 7px !important; width: 100%; border-collapse: collapse; }
+    #reporteApp th { padding: 2px 5px !important; color: #666 !important; border-bottom: 1px solid #f4a035 !important; }
+    #reporteApp td { padding: 1.5px 5px !important; border-bottom: 1px solid #eee !important; font-size: 7px !important; }
     .btn-print { display: none !important; }
-    /* Firmas - texto negro en impresión */
-    
-    /* Firmas en impresión */
-    #reporteApp div[style*="background:#fff"] { background: #fff !important; color: #111 !important; }
-    #firmasReporte {
-      display: grid !important;
-      grid-template-columns: 1fr 1fr !important;
-      gap: 40px !important;
-      padding: 10px 20px 10px !important;
-      max-width: 500px !important;
-      margin: 0 auto !important;
-    }
-    #firmasReporte div { color: #111 !important; }
-    #firmasReporte [style*="border-top"] { border-top: 1px solid #333 !important; }
-    /* Firmas siempre visibles en impresión */
-    .firmas-reporte {
-      display: grid !important;
-      grid-template-columns: 1fr 1fr !important;
-      gap: 30px !important;
-      margin-top: 6px !important;
-      page-break-inside: avoid !important;
-    }
-    .firmas-reporte div { color: #111 !important; }
   }>
