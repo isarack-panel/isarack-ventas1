@@ -7055,6 +7055,20 @@ async function renderReporte() {
       </table>
     </div>
 
+    <!-- FIRMAS -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin:10px auto 6px;max-width:500px;text-align:center">
+      <div>
+        <div style="border-top:1px solid #aaa;margin-bottom:4px;margin-top:28px"></div>
+        <div style="font-size:8px;font-weight:700;color:#111">Daniel Osuna Rueda</div>
+        <div style="font-size:7px;color:#555">Vendedor</div>
+      </div>
+      <div>
+        <div style="border-top:1px solid #aaa;margin-bottom:4px;margin-top:28px"></div>
+        <div style="font-size:8px;font-weight:700;color:#111">Gildardo Osuna Rueda</div>
+        <div style="font-size:7px;color:#555">CEO</div>
+      </div>
+    </div>
+
     <!-- TABLA PENDIENTES -->
     <div class="section">
       <div class="section-title">Órdenes Pendientes (${pendientes.length})</div>
@@ -7086,18 +7100,7 @@ async function renderReporte() {
     <button onclick="cerrarReporte()" style="background:#2a1a08;border:1px solid #3a2a10;color:#8a7a60;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.82rem;">✕ Cerrar</button>
   </div>
   <div id="reporteApp" style="padding:20px 40px 0 40px"></div>
-  <div id="firmasReporte" style="display:grid;grid-template-columns:1fr 1fr;gap:60px;padding:16px 40px 24px;max-width:600px;margin:0 auto;">
-    <div style="text-align:center">
-      <div style="border-top:1px solid #555;margin-bottom:5px;margin-top:30px"></div>
-      <div style="font-size:11px;font-weight:700;color:#e8e0d0">Daniel Osuna Rueda</div>
-      <div style="font-size:10px;color:#888">Vendedor</div>
-    </div>
-    <div style="text-align:center">
-      <div style="border-top:1px solid #555;margin-bottom:5px;margin-top:30px"></div>
-      <div style="font-size:11px;font-weight:700;color:#e8e0d0">Gildardo Osuna Rueda</div>
-      <div style="font-size:10px;color:#888">CEO</div>
-    </div>
-  </div>
+
   <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', sans-serif; background: #0f0e0c; color: #e8e0d0; }
