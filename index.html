@@ -7071,18 +7071,7 @@ async function renderReporte() {
       </table>
     </div>
 
-    <div class="firmas-reporte" style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:6px;padding-top:3px;max-width:480px;margin-left:auto;margin-right:auto">
-      <div style="text-align:center">
-        <div style="border-top:1px solid #333;margin-bottom:3px;margin-top:18px"></div>
-        <div style="font-size:7.5px;font-weight:700;color:#111">Daniel Osuna Rueda</div>
-        <div style="font-size:6.5px;color:#444">Vendedor</div>
-      </div>
-      <div style="text-align:center">
-        <div style="border-top:1px solid #333;margin-bottom:3px;margin-top:18px"></div>
-        <div style="font-size:7.5px;font-weight:700;color:#111">Gildardo Osuna Rueda</div>
-        <div style="font-size:6.5px;color:#444">CEO</div>
-      </div>
-    </div>
+    
   `;
 }
 
@@ -7096,7 +7085,19 @@ async function renderReporte() {
     <span style="color:#f4a035;font-weight:700;font-size:0.9rem;letter-spacing:1px;text-transform:uppercase;">📋 Reporte ABR-MAY 2026</span>
     <button onclick="cerrarReporte()" style="background:#2a1a08;border:1px solid #3a2a10;color:#8a7a60;padding:5px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.82rem;">✕ Cerrar</button>
   </div>
-  <div id="reporteApp" style="padding:20px 40px"></div>
+  <div id="reporteApp" style="padding:20px 40px 0 40px"></div>
+  <div id="firmasReporte" style="display:grid;grid-template-columns:1fr 1fr;gap:60px;padding:16px 40px 24px;max-width:600px;margin:0 auto;">
+    <div style="text-align:center">
+      <div style="border-top:1px solid #555;margin-bottom:5px;margin-top:30px"></div>
+      <div style="font-size:11px;font-weight:700;color:#e8e0d0">Daniel Osuna Rueda</div>
+      <div style="font-size:10px;color:#888">Vendedor</div>
+    </div>
+    <div style="text-align:center">
+      <div style="border-top:1px solid #555;margin-bottom:5px;margin-top:30px"></div>
+      <div style="font-size:11px;font-weight:700;color:#e8e0d0">Gildardo Osuna Rueda</div>
+      <div style="font-size:10px;color:#888">CEO</div>
+    </div>
+  </div>
   <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', sans-serif; background: #0f0e0c; color: #e8e0d0; }
@@ -7259,6 +7260,16 @@ async function renderReporte() {
 
     .total-row td { background: #e8f5e9 !important; color: #2e7d32 !important; font-weight: 700; border-top: 1px solid #4caf50 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 2px 4px !important; }
     .btn-print { display: none !important; }
+    #firmasReporte {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 40px !important;
+      padding: 10px 20px 10px !important;
+      max-width: 500px !important;
+      margin: 0 auto !important;
+    }
+    #firmasReporte div { color: #111 !important; }
+    #firmasReporte [style*="border-top"] { border-top: 1px solid #333 !important; }
     /* Firmas siempre visibles en impresión */
     .firmas-reporte {
       display: grid !important;
