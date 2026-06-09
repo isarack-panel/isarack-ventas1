@@ -518,34 +518,34 @@
   thead {
     position: sticky;
     top: 0;
-    z-index: 50;
+    z-index: 200;
   }
   thead th {
     background: #2a2a2a !important;
     background-color: #2a2a2a !important;
     border-bottom: 2px solid #1a1a1a;
-    box-shadow: 0 2px 0 #1a1a1a;
-    isolation: isolate;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    position: relative;
+    z-index: 200;
   }
   #filterRow {
     position: sticky;
     top: 36px;
-    z-index: 49;
+    z-index: 199;
   }
   #filterRow td {
     background: #2e2e2e !important;
     background-color: #2e2e2e !important;
     border-top: 0;
     border-bottom: 1px solid #1a1a1a;
+    position: relative;
+    z-index: 199;
   }
 
   /* Ensure rows don't bleed through */
   tbody tr.data-row {
     position: relative;
     z-index: 1;
-    isolation: isolate;
   }
 
   /* COVER FULL WIDTH GAP */
@@ -715,7 +715,7 @@
 <div class="page-shell">
 
 <!-- ═══ LOGIN SCREEN ═══ -->
-<div id="loginScreen" style="display:none!important;">
+<div id="loginScreen" style="display:none;">
   <div class="login-box">
     <div class="login-logo">
       <div class="name"><span style="color:#e07b27">ISA</span><span style="color:#888"> RACK SA</span></div>
@@ -5813,7 +5813,7 @@ let _unused = 17.3213;
   }
 
   function showApp() {
-    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('loginScreen').style.setProperty('display', 'none', 'important');
     const chip   = document.getElementById('userChip');
     const avatar = document.getElementById('userAvatar');
     const label  = document.getElementById('userLabel');
@@ -5843,7 +5843,8 @@ let _unused = 17.3213;
   }
 
   function hideApp() {
-    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginScreen').style.setProperty('display', 'flex', 'important');
     const chip = document.getElementById('userChip');
     const btn  = document.getElementById('logoutBtn');
     if (chip) chip.style.display = 'none';
@@ -6709,7 +6710,7 @@ let _unused = 17.3213;
   filterActive = null;
   // Auto-login sin contraseña
   currentUser = {id:'6642708523', name:'Admin', role:'admin'};
-  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('loginScreen').style.setProperty('display', 'none', 'important');
   document.getElementById('userChip').style.display = 'flex';
   document.getElementById('logoutBtn').style.display = 'block';
   document.getElementById('userAvatar').textContent = 'A';
@@ -7070,7 +7071,7 @@ async function renderReporte() {
       </table>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:6px;padding-top:3px;max-width:480px;margin-left:auto;margin-right:auto">
+    <div class="firmas-reporte" style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:6px;padding-top:3px;max-width:480px;margin-left:auto;margin-right:auto">
       <div style="text-align:center">
         <div style="border-top:1px solid #333;margin-bottom:3px;margin-top:18px"></div>
         <div style="font-size:7.5px;font-weight:700;color:#111">Daniel Osuna Rueda</div>
@@ -7258,4 +7259,13 @@ async function renderReporte() {
 
     .total-row td { background: #e8f5e9 !important; color: #2e7d32 !important; font-weight: 700; border-top: 1px solid #4caf50 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 2px 4px !important; }
     .btn-print { display: none !important; }
+    /* Firmas siempre visibles en impresión */
+    .firmas-reporte {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 30px !important;
+      margin-top: 6px !important;
+      page-break-inside: avoid !important;
+    }
+    .firmas-reporte div { color: #111 !important; }
   }>
