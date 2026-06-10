@@ -6407,79 +6407,120 @@ let _unused = 17.3213;
   function printTable() {
     const tc=tcDOF||17.24,tcUsado=tc>0?tc:17.24;
     function fmtR(n){return Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});}
+    function fmtR0(n){return Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});}
     function isPag(o){const p=Array.isArray(o.pagos)?o.pagos:(o.pagos?Object.values(o.pagos):[]);return p.reduce((s,x)=>s+(Number(x.pct)||0),0)>=100||(!!o.fechaPago&&p.length===0);}
     const pag=orders.filter(o=>{const f=(o.facturaNum||'').trim();return isPag(o)&&f&&f.toLowerCase()!=='s/fac'&&!o.sinFactura;});
     const pend=orders.filter(o=>!isPag(o));
     let tot=0;
-    const rows=pag.map((o,i)=>{
-      const pct=(o.pctCustom!=null&&o.pctCustom!==undefined)?o.pctCustom:(o.pct||2.20);
-      const d=parseFloat(o.dlls||0),p=parseFloat(o.pesos||0),com=(d*(pct/100)*tcUsado)+(p*(pct/100));
-      tot+=com;
-      const bg=i%2===0?'#ffffff':'#f7f7f7';
-      return '<tr style="background:'+bg+'"><td>'+(o.odoo||'—')+'</td><td style="color:#c45a00;font-weight:600">'+(o.facturaNum||'—')+'</td><td>'+(o.cliente||'—')+'</td><td style="text-align:right">'+(d>0?'$'+fmtR(d)+' USD':'—')+'</td><td style="text-align:right">'+(p>0?'$'+fmtR(p)+' MXN':'—')+'</td><td style="text-align:center">'+pct.toFixed(2)+'%</td><td style="text-align:right;color:#2e7d32;font-weight:700">$'+fmtR(com)+'</td><td style="text-align:center;color:#2e7d32">✓</td></tr>';
-    }).join('');
+    function makeRows(grupo){
+      return grupo.map((o,i)=>{
+        const pct=(o.pctCustom!=null&&o.pctCustom!==undefined)?o.pctCustom:(o.pct||2.20);
+        const d=parseFloat(o.dlls||0),p=parseFloat(o.pesos||0),com=(d*(pct/100)*tcUsado)+(p*(pct/100));
+        tot+=com;
+        const bg=i%2===0?'#ffffff':'#f7f7f7';
+        return '<tr style="background:'+bg+'"><td>'+(o.odoo||'—')+'</td><td style="color:#c45a00;font-weight:600">'+(o.facturaNum||'—')+'</td><td>'+(o.cliente||'—')+'</td><td style="text-align:right">'+(d>0?'$'+fmtR0(d):'—')+'</td><td style="text-align:right">'+(p>0?'$'+fmtR0(p):'—')+'</td><td style="text-align:right;color:#2e7d32;font-weight:700">$'+fmtR(com)+'</td></tr>';
+      }).join('');
+    }
+    const g1=pag.slice(0,19), g2=pag.slice(19);
+    const rows1=makeRows(g1), rows2=makeRows(g2);
     const fecha=new Date().toLocaleDateString('es-MX');
     const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reporte ISA RACK SA</title>
 <style>
 
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#111;padding:8px;font-size:7px}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#111;padding:7px;font-size:9px}
 .header{background:#1a1208;padding:6px 14px;border-bottom:2px solid #f4a035;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-radius:4px}
 .resumen{display:grid;grid-template-columns:1fr 1fr 1fr 1.8fr;gap:4px;margin-bottom:6px}
-.bloque{background:#faf8f4;border:1px solid #ddd;border-radius:4px;padding:4px 8px}
-.gran{background:#f0faf0;border:1.5px solid #4caf50;border-radius:4px;padding:4px 10px;position:relative}
-.gran::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:#4caf50;border-radius:4px 4px 0 0}
+.bloque{background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:3px 8px}
+.gran{background:#f0faf0;border:1.5px solid #4caf50;border-radius:3px;padding:3px 10px;position:relative}
+.gran::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:#4caf50;border-radius:3px 3px 0 0}
+.main-layout{display:grid;grid-template-columns:1fr 1fr 160px;gap:8px}
 table{width:100%;border-collapse:collapse}
-th{background:#f5f0e8;padding:2px 5px;text-align:left;color:#666;font-size:6.5px;text-transform:uppercase;border-bottom:1.5px solid #f4a035}
-td{padding:1.5px 5px;font-size:7px;border-bottom:1px solid #eee;color:#111}
+th{background:#f5f0e8;padding:3px 5px;text-align:left;color:#666;font-size:8px;text-transform:uppercase;border-bottom:1.5px solid #f4a035}
+td{padding:2.5px 5px;font-size:9px;border-bottom:1px solid #eee;color:#111}
 .total-row td{background:#e8f5e9;color:#2e7d32;font-weight:700;border-top:1.5px solid #4caf50;padding:3px 5px}
-.firmas{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin:6px auto 4px;max-width:500px;text-align:center}
-.firma-linea{border-top:1px solid #333;margin-bottom:3px;margin-top:12px}
-.firma-nombre{font-size:8px;font-weight:700;color:#111}
-.firma-cargo{font-size:7px;color:#555}
+.panel-deuda{background:#fafafa;border:1px solid #ddd;border-radius:6px;padding:10px 8px;display:flex;flex-direction:column;gap:10px}
+.panel-deuda h3{font-size:9px;font-weight:700;color:#333;border-bottom:1px solid #ddd;padding-bottom:5px}
+.campo label{font-size:7px;color:#888;text-transform:uppercase;display:block;margin-bottom:2px}
+.campo input{border:1px solid #ddd;border-radius:3px;padding:4px 6px;font-size:10px;font-weight:700;color:#111;width:100%;text-align:right}
+.resta-box{background:#fff3e0;border-radius:4px;padding:5px 7px}
+.resta-box label{font-size:7px;color:#c45a00;text-transform:uppercase}
+.resta-box .val{font-size:13px;font-weight:800;color:#c45a00;text-align:right}
+.neto-box{background:#e8f5e9;border-radius:4px;padding:5px 7px}
+.neto-box label{font-size:7px;color:#2e7d32;text-transform:uppercase}
+.neto-box .val{font-size:13px;font-weight:800;color:#2e7d32;text-align:right}
+.sec-title{font-size:7px;font-weight:700;color:#2e7d32;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:3px}
+.firmas{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:8px;text-align:center;grid-column:1/3}
+.firma-linea{border-top:1px solid #333;margin-bottom:3px;margin-top:14px}
+.firma-nombre{font-size:9px;font-weight:700;color:#111}
+.firma-cargo{font-size:8px;color:#555}
 @media print{
   @page{size:letter landscape;margin:0.4cm 0.6cm}
   body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .firmas{display:grid!important;grid-template-columns:1fr 1fr!important}
-  .firma-nombre,.firma-cargo{color:#111!important}
+  input{border:none!important;background:transparent!important}
 }
-</style></head><body>
+</style>
+<script>
+function recalc(){
+  const deuda=parseFloat(document.getElementById('deuda').value.replace(/[^0-9.]/g,'')||0);
+  const abono=parseFloat(document.getElementById('abono').value.replace(/[^0-9.]/g,'')||0);
+  const tot=\${tot};
+  document.getElementById('resta').textContent='$'+(deuda-abono).toLocaleString('es-MX',{minimumFractionDigits:2});
+  document.getElementById('neto').textContent='$'+(tot-abono).toLocaleString('es-MX',{minimumFractionDigits:2});
+  document.getElementById('abono-display').textContent='- $'+abono.toLocaleString('es-MX',{minimumFractionDigits:2});
+}
+<\/script>
+</head><body>
 <div class="header">
-  <div><div style="font-size:13px;font-weight:800;color:#f4a035">ISA RACK SA</div><div style="font-size:6px;color:#7a6a50;letter-spacing:2px">CONTROL DE VENTAS</div></div>
-  <div style="text-align:center"><div style="font-size:11px;font-weight:700;color:#fff">📋 REPORTE \${bimestreActivo||''}</div><div style="font-size:6px;color:#aaa">\${currentUser?currentUser.name:'Admin'} · \${fecha}</div></div>
-  <div style="text-align:right;font-size:6px;color:#aaa">TC DOF: <strong style="color:#fff">$\${fmtR(tcUsado)} MXN</strong></div>
+  <div><div style="font-size:15px;font-weight:800;color:#f4a035">ISA RACK SA</div><div style="font-size:7px;color:#7a6a50;letter-spacing:2px">CONTROL DE VENTAS</div></div>
+  <div style="text-align:center"><div style="font-size:13px;font-weight:700;color:#fff">📋 REPORTE \${bimestreActivo||''}</div><div style="font-size:7px;color:#aaa">\${currentUser?currentUser.name:'Admin'} · \${fecha}</div></div>
+  <div style="text-align:right;font-size:7px;color:#aaa">TC DOF: <strong style="color:#fff">$\${fmtR(tcUsado)} MXN</strong></div>
 </div>
 <div class="resumen">
-  <div class="bloque"><div style="font-size:5.5px;color:#7a6a50;text-transform:uppercase;margin-bottom:1px">Órdenes Pagadas c/Factura</div><div style="font-size:16px;font-weight:800;color:#2e7d32">\${pag.length}</div><div style="font-size:5.5px;color:#7a6a50">de \${orders.length} totales en el período</div></div>
-  <div class="bloque"><div style="font-size:5.5px;color:#7a6a50;text-transform:uppercase;margin-bottom:1px">Órdenes Pendientes</div><div style="font-size:16px;font-weight:800;color:#e65100">\${pend.length}</div><div style="font-size:5.5px;color:#7a6a50">sin completar pago 100%</div></div>
-  <div class="bloque"><div style="font-size:5.5px;color:#7a6a50;text-transform:uppercase;margin-bottom:1px">TC DOF Aplicado</div><div style="font-size:12px;font-weight:800;color:#111">$\${fmtR(tcUsado)} MXN</div><div style="font-size:5.5px;color:#7a6a50">\${tcFechaStr||fecha}</div></div>
-  <div class="gran"><div style="font-size:5.5px;color:#7a6a50;text-transform:uppercase;margin-bottom:1px">Comisiones Pagadas — Con Factura</div><div style="font-size:5.5px;color:#888;margin-bottom:3px">Órdenes pagadas al 100% · monto × % · USD × TC DOF</div><div style="font-size:18px;font-weight:900;color:#2e7d32;line-height:1">$\${fmtR(tot)} <span style="font-size:8px">MXN</span></div><div style="font-size:5.5px;color:#7a6a50;margin-top:1px">TC $\${fmtR(tcUsado)} · \${tcFechaStr||fecha}</div></div>
+  <div class="bloque"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Pagadas c/Factura</div><div style="font-size:18px;font-weight:800;color:#2e7d32">\${pag.length}</div><div style="font-size:6px;color:#7a6a50">de \${orders.length} totales</div></div>
+  <div class="bloque"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Pendientes</div><div style="font-size:18px;font-weight:800;color:#e65100">\${pend.length}</div><div style="font-size:6px;color:#7a6a50">sin pago 100%</div></div>
+  <div class="bloque"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">TC DOF</div><div style="font-size:13px;font-weight:800;color:#111">$\${fmtR(tcUsado)} MXN</div></div>
+  <div class="gran"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Comisiones Pagadas — Con Factura</div><div style="font-size:6px;color:#888;margin-bottom:2px">Pagadas al 100% · USD × TC DOF</div><div style="font-size:20px;font-weight:900;color:#2e7d32">$\${fmtR(tot)} <span style="font-size:9px">MXN</span></div></div>
 </div>
-<div style="font-size:6.5px;font-weight:700;color:#2e7d32;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:3px">✅ ÓRDENES PAGADAS CON FACTURA (\${pag.length})</div>
-<table><thead><tr>
-  <th>ODOO</th><th>FACTURA</th><th>CLIENTE</th>
-  <th style="text-align:right">DLLS USD</th><th style="text-align:right">PESOS MXN</th>
-  <th style="text-align:center">%</th><th style="text-align:right">COMISIÓN MXN</th>
-  <th style="text-align:center">ESTADO</th>
-</tr></thead>
-<tbody>\${rows}
-<tr class="total-row"><td colspan="6" style="text-align:right">TOTAL COMISIONES PAGADAS CON FACTURA</td><td style="text-align:right">$\${fmtR(tot)} MXN</td><td></td></tr>
-</tbody></table>
-<div class="firmas">
-  <div><div class="firma-linea"></div><div class="firma-nombre">Daniel Osuna Rueda</div><div class="firma-cargo">Vendedor</div></div>
-  <div><div class="firma-linea"></div><div class="firma-nombre">Gildardo Osuna Rueda</div><div class="firma-cargo">CEO</div></div>
+<div class="main-layout">
+  <div>
+    <div class="sec-title">✅ ÓRDENES 1-19</div>
+    <table><thead><tr><th>ODOO</th><th>FACTURA</th><th>CLIENTE</th><th style="text-align:right">DLLS</th><th style="text-align:right">PESOS</th><th style="text-align:right">COMISIÓN</th></tr></thead>
+    <tbody>\${rows1}</tbody></table>
+  </div>
+  <div>
+    <div class="sec-title">✅ ÓRDENES 20-\${pag.length}</div>
+    <table><thead><tr><th>ODOO</th><th>FACTURA</th><th>CLIENTE</th><th style="text-align:right">DLLS</th><th style="text-align:right">PESOS</th><th style="text-align:right">COMISIÓN</th></tr></thead>
+    <tbody>\${rows2}
+    <tr class="total-row"><td colspan="4"></td><td style="text-align:right">TOTAL</td><td style="text-align:right">$\${fmtR(tot)} MXN</td></tr>
+    </tbody></table>
+  </div>
+  <div class="panel-deuda">
+    <h3>💳 DESCUENTOS</h3>
+    <div class="campo"><label>Deuda Actual</label><input id="deuda" type="text" value="0.00" oninput="recalc()"></div>
+    <div class="campo"><label>Abono Bimestre</label><input id="abono" type="text" value="0.00" oninput="recalc()"></div>
+    <div class="resta-box"><label>Resta Adeudo</label><div class="val" id="resta">$0.00</div></div>
+    <div style="border-top:1px solid #ddd;padding-top:6px">
+      <div style="font-size:6px;color:#666;text-transform:uppercase">Total Comisiones</div>
+      <div style="font-size:11px;font-weight:700;color:#2e7d32;text-align:right">$\${fmtR(tot)}</div>
+      <div style="font-size:6px;color:#666;text-transform:uppercase;margin-top:4px">Abono al Adeudo</div>
+      <div style="font-size:10px;font-weight:700;color:#c45a00;text-align:right" id="abono-display">- $0.00</div>
+    </div>
+    <div class="neto-box"><label>Neto a Cobrar</label><div class="val" id="neto">$\${fmtR(tot)}</div></div>
+  </div>
+  <div class="firmas">
+    <div><div class="firma-linea"></div><div class="firma-nombre">Daniel Osuna Rueda</div><div class="firma-cargo">Vendedor</div></div>
+    <div><div class="firma-linea"></div><div class="firma-nombre">Gildardo Osuna Rueda</div><div class="firma-cargo">CEO</div></div>
+  </div>
 </div>
 </body></html>`;
     const w=window.open('','_blank');
     w.document.write(html);
     w.document.close();
-    setTimeout(()=>{
-      // Forzar landscape
-      const style=w.document.createElement('style');
-      style.textContent='@page{size:landscape!important}@media print{@page{size:landscape!important}}';
-      w.document.head.appendChild(style);
-      w.print();
-    },600);
+    const s=w.document.createElement('style');
+    s.textContent='@page{size:letter landscape!important}';
+    w.document.head.appendChild(s);
+    setTimeout(()=>w.print(),800);
   }
 
   // ── MODAL ────────────────────────────────────────────────────
