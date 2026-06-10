@@ -6412,110 +6412,86 @@ let _unused = 17.3213;
     const pag=orders.filter(o=>{const f=(o.facturaNum||'').trim();return isPag(o)&&f&&f.toLowerCase()!=='s/fac'&&!o.sinFactura;});
     const pend=orders.filter(o=>!isPag(o));
     let tot=0;
+    const thS='style="background:#f5f0e8;padding:4px 5px;text-align:left;color:#666;font-size:8px;text-transform:uppercase;border-bottom:2px solid #f4a035"';
     function makeRows(grupo){
       return grupo.map((o,i)=>{
         const pct=(o.pctCustom!=null&&o.pctCustom!==undefined)?o.pctCustom:(o.pct||2.20);
         const d=parseFloat(o.dlls||0),p=parseFloat(o.pesos||0),com=(d*(pct/100)*tcUsado)+(p*(pct/100));
         tot+=com;
         const bg=i%2===0?'#ffffff':'#f7f7f7';
-        return '<tr style="background:'+bg+'"><td>'+(o.odoo||'—')+'</td><td style="color:#c45a00;font-weight:600">'+(o.facturaNum||'—')+'</td><td>'+(o.cliente||'—')+'</td><td style="text-align:right">'+(d>0?'$'+fmtR0(d):'—')+'</td><td style="text-align:right">'+(p>0?'$'+fmtR0(p):'—')+'</td><td style="text-align:right;color:#2e7d32;font-weight:700">$'+fmtR(com)+'</td></tr>';
+        return `<tr style="background:${bg}">
+          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee">${o.odoo||'—'}</td>
+          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;color:#c45a00;font-weight:600">${o.facturaNum||'—'}</td>
+          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee">${o.cliente||'—'}</td>
+          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;text-align:right">${d>0?'$'+fmtR0(d):'—'}</td>
+          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;text-align:right">${p>0?'$'+fmtR0(p):'—'}</td>
+          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;text-align:right;color:#2e7d32;font-weight:700">$${fmtR(com)}</td>
+        </tr>`;
       }).join('');
     }
     const g1=pag.slice(0,19),g2=pag.slice(19);
     const rows1=makeRows(g1),rows2=makeRows(g2);
     const fecha=new Date().toLocaleDateString('es-MX');
-
     const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reporte ISA RACK SA</title>
-<style>
-
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#111;padding:7px;font-size:11px}
-.header{background:#1a1208;padding:6px 14px;border-bottom:2px solid #f4a035;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-radius:4px}
-.resumen{display:grid;grid-template-columns:1fr 1fr 1fr 1.8fr;gap:4px;margin-bottom:6px}
-.bloque{background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:3px 8px}
-.gran{background:#f0faf0;border:1.5px solid #4caf50;border-radius:3px;padding:3px 10px;position:relative}
-.gran::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:#4caf50}
-/* LAYOUT PRINCIPAL: 3 columnas lado a lado */
-.main-layout{display:grid;grid-template-columns:1fr 1fr 180px;gap:8px;align-items:start}
-table{width:100%;border-collapse:collapse}
-th{background:#f5f0e8;padding:5px 6px;text-align:left;color:#666;font-size:11px;text-transform:uppercase;border-bottom:1.5px solid #f4a035}
-td{padding:5px 6px;font-size:12px;border-bottom:1px solid #eee;color:#111}
-.total-row td{background:#e8f5e9;color:#2e7d32;font-weight:700;border-top:1.5px solid #4caf50;padding:3px 5px}
-.sec-title{font-size:9px;font-weight:700;color:#2e7d32;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:3px}
-.panel-deuda{background:#fafafa;border:1px solid #ddd;border-radius:6px;padding:10px 8px;display:flex;flex-direction:column;gap:10px}
-.panel-deuda h3{font-size:11px;font-weight:700;color:#333;border-bottom:1px solid #ddd;padding-bottom:5px}
-.campo label{font-size:9px;color:#888;text-transform:uppercase;display:block;margin-bottom:2px}
-.campo input{border:1px solid #ddd;border-radius:3px;padding:5px 7px;font-size:12px;font-weight:700;color:#111;width:100%;text-align:right}
-.resta-box{background:#fff3e0;border-radius:4px;padding:5px 7px}
-.resta-box label{font-size:7px;color:#c45a00;text-transform:uppercase}
-.resta-box .val{font-size:15px;font-weight:800;color:#c45a00;text-align:right}
-.neto-box{background:#e8f5e9;border-radius:4px;padding:5px 7px}
-.neto-box label{font-size:7px;color:#2e7d32;text-transform:uppercase}
-.neto-box .val{font-size:15px;font-weight:800;color:#2e7d32;text-align:right}
-/* FIRMAS — span 2 columnas de tabla */
-.firmas-row{grid-column:1/3;display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:10px;text-align:center}
-.firma-linea{border-top:1px solid #333;margin-bottom:3px;margin-top:14px}
-.firma-nombre{font-size:9px;font-weight:700;color:#111}
-.firma-cargo{font-size:8px;color:#555}
-@media print{
-  @page{size:letter landscape;margin:0.4cm 0.6cm}
-  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  input{border:none!important;background:transparent!important}
-}
-</style>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#111;padding:7px}@media print{@page{size:letter landscape;margin:0.4cm 0.6cm}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}input{border:none!important;background:transparent!important;font-weight:700}}</style>
 <script>
 function recalc(){
-  const deuda=parseFloat(document.getElementById('deuda').value.replace(/[^0-9.]/g,'')||0);
-  const abono=parseFloat(document.getElementById('abono').value.replace(/[^0-9.]/g,'')||0);
-  const tot=\${tot};
-  document.getElementById('resta').textContent='$'+(deuda-abono).toLocaleString('es-MX',{minimumFractionDigits:2});
-  document.getElementById('neto').textContent='$'+(tot-abono).toLocaleString('es-MX',{minimumFractionDigits:2});
-  document.getElementById('abono-display').textContent='- $'+abono.toLocaleString('es-MX',{minimumFractionDigits:2});
+  var d=parseFloat(document.getElementById('deuda').value.replace(/[^0-9.]/g,'')||0);
+  var a=parseFloat(document.getElementById('abono').value.replace(/[^0-9.]/g,'')||0);
+  document.getElementById('resta').innerHTML='$'+(d-a).toLocaleString('es-MX',{minimumFractionDigits:2});
+  document.getElementById('neto').innerHTML='$'+(${tot}-a).toLocaleString('es-MX',{minimumFractionDigits:2});
 }
 <\/script>
 </head><body>
-<div class="header">
-  <div><div style="font-size:15px;font-weight:800;color:#f4a035">ISA RACK SA</div><div style="font-size:7px;color:#7a6a50;letter-spacing:2px">CONTROL DE VENTAS</div></div>
-  <div style="text-align:center"><div style="font-size:13px;font-weight:700;color:#fff">📋 REPORTE \${bimestreActivo||''}</div><div style="font-size:7px;color:#aaa">\${currentUser?currentUser.name:'Admin'} · \${fecha}</div></div>
-  <div style="text-align:right;font-size:7px;color:#aaa">TC DOF: <strong style="color:#fff">$\${fmtR(tcUsado)} MXN</strong></div>
-</div>
-<div class="resumen">
-  <div class="bloque"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Pagadas c/Factura</div><div style="font-size:18px;font-weight:800;color:#2e7d32">\${pag.length}</div><div style="font-size:6px;color:#7a6a50">de \${orders.length} totales</div></div>
-  <div class="bloque"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Pendientes</div><div style="font-size:18px;font-weight:800;color:#e65100">\${pend.length}</div><div style="font-size:6px;color:#7a6a50">sin pago 100%</div></div>
-  <div class="bloque"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">TC DOF</div><div style="font-size:13px;font-weight:800;color:#111">$\${fmtR(tcUsado)} MXN</div></div>
-  <div class="gran"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Comisiones Pagadas — Con Factura</div><div style="font-size:6px;color:#888;margin-bottom:2px">Pagadas al 100% · USD × TC DOF</div><div style="font-size:20px;font-weight:900;color:#2e7d32">$\${fmtR(tot)} <span style="font-size:9px">MXN</span></div></div>
-</div>
-<div class="main-layout">
-  <div>
-    <div class="sec-title">✅ ÓRDENES 1-19</div>
-    <table><thead><tr><th>ODOO</th><th>FACTURA</th><th>CLIENTE</th><th style="text-align:right">DLLS</th><th style="text-align:right">PESOS</th><th style="text-align:right">COMISIÓN</th></tr></thead>
-    <tbody>\${rows1}</tbody></table>
-  </div>
-  <div>
-    <div class="sec-title">✅ ÓRDENES 20-\${pag.length}</div>
-    <table><thead><tr><th>ODOO</th><th>FACTURA</th><th>CLIENTE</th><th style="text-align:right">DLLS</th><th style="text-align:right">PESOS</th><th style="text-align:right">COMISIÓN</th></tr></thead>
-    <tbody>\${rows2}
-    <tr class="total-row"><td colspan="4"></td><td style="text-align:right">TOTAL</td><td style="text-align:right">$\${fmtR(tot)} MXN</td></tr>
+<table width="100%" style="background:#1a1208;border-radius:4px;margin-bottom:6px"><tr>
+  <td style="padding:6px 14px"><div style="font-size:15px;font-weight:800;color:#f4a035">ISA RACK SA</div><div style="font-size:6px;color:#7a6a50;letter-spacing:2px">CONTROL DE VENTAS</div></td>
+  <td style="padding:6px;text-align:center"><div style="font-size:13px;font-weight:700;color:#fff">📋 REPORTE \${bimestreActivo||''}</div><div style="font-size:6px;color:#aaa">\${currentUser?currentUser.name:'Admin'} · \${fecha}</div></td>
+  <td style="padding:6px 14px;text-align:right"><div style="font-size:7px;color:#aaa">TC DOF: <strong style="color:#fff">$\${fmtR(tcUsado)} MXN</strong></div></td>
+</tr></table>
+<table width="100%" style="margin-bottom:6px;border-collapse:separate;border-spacing:4px"><tr>
+  <td width="22%" style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:4px 8px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Pagadas c/Factura</div><div style="font-size:20px;font-weight:800;color:#2e7d32">\${pag.length}</div><div style="font-size:6px;color:#7a6a50">de \${orders.length} totales</div></td>
+  <td width="22%" style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:4px 8px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Pendientes</div><div style="font-size:20px;font-weight:800;color:#e65100">\${pend.length}</div><div style="font-size:6px;color:#7a6a50">sin pago 100%</div></td>
+  <td width="22%" style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:4px 8px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">TC DOF</div><div style="font-size:14px;font-weight:800;color:#111">$\${fmtR(tcUsado)} MXN</div></td>
+  <td style="background:#f0faf0;border:2px solid #4caf50;border-radius:3px;padding:4px 10px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Comisiones Pagadas — Con Factura</div><div style="font-size:6px;color:#888;margin-bottom:2px">Pagadas al 100% · USD × TC DOF</div><div style="font-size:22px;font-weight:900;color:#2e7d32">$\${fmtR(tot)} <span style="font-size:9px">MXN</span></div></td>
+</tr></table>
+<table width="100%" style="border-collapse:separate;border-spacing:6px"><tr valign="top">
+  <td width="43%">
+    <div style="font-size:8px;font-weight:700;color:#2e7d32;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:3px">✅ ÓRDENES 1-19</div>
+    <table width="100%" style="border-collapse:collapse"><thead><tr>
+      <th \${thS}>ODOO</th><th \${thS}>FACTURA</th><th \${thS}>CLIENTE</th>
+      <th \${thS} style="text-align:right">DLLS</th><th \${thS} style="text-align:right">PESOS</th><th \${thS} style="text-align:right">COMISIÓN</th>
+    </tr></thead><tbody>\${rows1}</tbody></table>
+  </td>
+  <td width="43%">
+    <div style="font-size:8px;font-weight:700;color:#2e7d32;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:3px">✅ ÓRDENES 20-\${pag.length}</div>
+    <table width="100%" style="border-collapse:collapse"><thead><tr>
+      <th \${thS}>ODOO</th><th \${thS}>FACTURA</th><th \${thS}>CLIENTE</th>
+      <th \${thS} style="text-align:right">DLLS</th><th \${thS} style="text-align:right">PESOS</th><th \${thS} style="text-align:right">COMISIÓN</th>
+    </tr></thead><tbody>\${rows2}
+      <tr style="background:#e8f5e9"><td colspan="4" style="padding:3px 5px;font-size:9px;font-weight:700;color:#2e7d32;text-align:right;border-top:2px solid #4caf50">TOTAL COMISIONES</td><td style="border-top:2px solid #4caf50"></td><td style="padding:3px 5px;font-size:10px;font-weight:800;color:#2e7d32;text-align:right;border-top:2px solid #4caf50">$\${fmtR(tot)} MXN</td></tr>
     </tbody></table>
-  </div>
-  <div class="panel-deuda">
-    <h3>💳 DESCUENTOS</h3>
-    <div class="campo"><label>Deuda Actual</label><input id="deuda" type="text" value="0.00" oninput="recalc()"></div>
-    <div class="campo"><label>Abono Bimestre</label><input id="abono" type="text" value="0.00" oninput="recalc()"></div>
-    <div class="resta-box"><label>Resta Adeudo</label><div class="val" id="resta">$0.00</div></div>
-    <div style="border-top:1px solid #ddd;padding-top:6px">
-      <div style="font-size:6px;color:#666;text-transform:uppercase">Total Comisiones</div>
-      <div style="font-size:11px;font-weight:700;color:#2e7d32;text-align:right">$\${fmtR(tot)}</div>
-      <div style="font-size:6px;color:#666;text-transform:uppercase;margin-top:4px">Abono al Adeudo</div>
-      <div style="font-size:10px;font-weight:700;color:#c45a00;text-align:right" id="abono-display">- $0.00</div>
+  </td>
+  <td width="14%" style="background:#fafafa;border:1px solid #ddd;border-radius:6px;padding:10px 8px">
+    <div style="font-size:10px;font-weight:700;color:#333;border-bottom:1px solid #ddd;padding-bottom:5px;margin-bottom:8px">💳 DESCUENTOS</div>
+    <div style="margin-bottom:8px"><div style="font-size:7px;color:#888;text-transform:uppercase;margin-bottom:2px">Deuda Actual</div>
+    <input id="deuda" type="text" value="0.00" oninput="recalc()" style="border:1px solid #ddd;border-radius:3px;padding:4px 6px;font-size:11px;font-weight:700;color:#111;width:100%;text-align:right"></div>
+    <div style="margin-bottom:8px"><div style="font-size:7px;color:#888;text-transform:uppercase;margin-bottom:2px">Abono Bimestre</div>
+    <input id="abono" type="text" value="0.00" oninput="recalc()" style="border:1px solid #ddd;border-radius:3px;padding:4px 6px;font-size:11px;font-weight:700;color:#111;width:100%;text-align:right"></div>
+    <div style="background:#fff3e0;border-radius:4px;padding:6px 8px;margin-bottom:10px"><div style="font-size:7px;color:#c45a00;text-transform:uppercase">Resta Adeudo</div><div id="resta" style="font-size:15px;font-weight:800;color:#c45a00;text-align:right">$0.00</div></div>
+    <div style="border-top:1px solid #ddd;padding-top:8px;margin-bottom:6px">
+      <div style="font-size:7px;color:#666;text-transform:uppercase">Total Comisiones</div><div style="font-size:12px;font-weight:700;color:#2e7d32;text-align:right">$\${fmtR(tot)}</div>
+      <div style="font-size:7px;color:#666;text-transform:uppercase;margin-top:4px">Abono al Adeudo</div><div style="font-size:11px;font-weight:700;color:#c45a00;text-align:right">- $0.00</div>
     </div>
-    <div class="neto-box"><label>Neto a Cobrar</label><div class="val" id="neto">$\${fmtR(tot)}</div></div>
-  </div>
-  <div class="firmas-row">
-    <div><div class="firma-linea"></div><div class="firma-nombre">Daniel Osuna Rueda</div><div class="firma-cargo">Vendedor</div></div>
-    <div><div class="firma-linea"></div><div class="firma-nombre">Gildardo Osuna Rueda</div><div class="firma-cargo">CEO</div></div>
-  </div>
-</div>
+    <div style="background:#e8f5e9;border-radius:4px;padding:6px 8px"><div style="font-size:7px;color:#2e7d32;text-transform:uppercase">Neto a Cobrar</div><div id="neto" style="font-size:15px;font-weight:800;color:#2e7d32;text-align:right">$\${fmtR(tot)}</div></div>
+  </td>
+</tr>
+<tr><td colspan="2" style="padding-top:10px">
+  <table width="100%"><tr>
+    <td width="50%" style="text-align:center;padding:0 20px"><div style="border-top:1px solid #333;margin-bottom:4px;margin-top:20px"></div><div style="font-size:10px;font-weight:700;color:#111">Daniel Osuna Rueda</div><div style="font-size:9px;color:#555">Vendedor</div></td>
+    <td width="50%" style="text-align:center;padding:0 20px"><div style="border-top:1px solid #333;margin-bottom:4px;margin-top:20px"></div><div style="font-size:10px;font-weight:700;color:#111">Gildardo Osuna Rueda</div><div style="font-size:9px;color:#555">CEO</div></td>
+  </tr></table>
+</td><td></td></tr>
+</table>
 </body></html>`;
     const w=window.open('','_blank');
     w.document.write(html);
