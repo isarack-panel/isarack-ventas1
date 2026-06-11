@@ -6405,14 +6405,14 @@ let _unused = 17.3213;
   }
 
   function printTable() {
-    const tc=tcDOF||17.24,tcUsado=tc>0?tc:17.24;
+    const tc=tcDOF||17.24, tcUsado=tc>0?tc:17.24;
     function fmtR(n){return Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});}
     function fmtR0(n){return Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});}
     function isPag(o){const p=Array.isArray(o.pagos)?o.pagos:(o.pagos?Object.values(o.pagos):[]);return p.reduce((s,x)=>s+(Number(x.pct)||0),0)>=100||(!!o.fechaPago&&p.length===0);}
     const pag=orders.filter(o=>{const f=(o.facturaNum||'').trim();return isPag(o)&&f&&f.toLowerCase()!=='s/fac'&&!o.sinFactura;});
     const pend=orders.filter(o=>!isPag(o));
     let tot=0;
-    const thS='style="background:#f5f0e8;padding:4px 5px;text-align:left;color:#666;font-size:8px;text-transform:uppercase;border-bottom:2px solid #f4a035"';
+    const thS='background:#f5f0e8;padding:4px 5px;text-align:left;color:#666;font-size:9px;text-transform:uppercase;border-bottom:2px solid #f4a035';
     function makeRows(grupo){
       return grupo.map((o,i)=>{
         const pct=(o.pctCustom!=null&&o.pctCustom!==undefined)?o.pctCustom:(o.pct||2.20);
@@ -6420,86 +6420,120 @@ let _unused = 17.3213;
         tot+=com;
         const bg=i%2===0?'#ffffff':'#f7f7f7';
         return `<tr style="background:${bg}">
-          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee">${o.odoo||'—'}</td>
+          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;color:#111">${o.odoo||'—'}</td>
           <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;color:#c45a00;font-weight:600">${o.facturaNum||'—'}</td>
-          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee">${o.cliente||'—'}</td>
-          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;text-align:right">${d>0?'$'+fmtR0(d):'—'}</td>
-          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;text-align:right">${p>0?'$'+fmtR0(p):'—'}</td>
+          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;color:#111">${o.cliente||'—'}</td>
+          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;text-align:right;color:#111">${d>0?'$'+fmtR0(d):'—'}</td>
+          <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;text-align:right;color:#111">${p>0?'$'+fmtR0(p):'—'}</td>
           <td style="padding:3px 5px;font-size:9px;border-bottom:1px solid #eee;text-align:right;color:#2e7d32;font-weight:700">$${fmtR(com)}</td>
         </tr>`;
       }).join('');
     }
-    const g1=pag.slice(0,19),g2=pag.slice(19);
-    const rows1=makeRows(g1),rows2=makeRows(g2);
+    const g1=pag.slice(0,19), g2=pag.slice(19);
+    const rows1=makeRows(g1), rows2=makeRows(g2);
     const fecha=new Date().toLocaleDateString('es-MX');
-    const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reporte ISA RACK SA</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#111;padding:7px}@media print{@page{size:letter landscape;margin:0.4cm 0.6cm}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}input{border:none!important;background:transparent!important;font-weight:700}}</style>
-<script>
-function recalc(){
-  var d=parseFloat(document.getElementById('deuda').value.replace(/[^0-9.]/g,'')||0);
-  var a=parseFloat(document.getElementById('abono').value.replace(/[^0-9.]/g,'')||0);
-  document.getElementById('resta').innerHTML='$'+(d-a).toLocaleString('es-MX',{minimumFractionDigits:2});
-  document.getElementById('neto').innerHTML='$'+(${tot}-a).toLocaleString('es-MX',{minimumFractionDigits:2});
-}
-<\/script>
-</head><body>
-<table width="100%" style="background:#1a1208;border-radius:4px;margin-bottom:6px"><tr>
-  <td style="padding:6px 14px"><div style="font-size:15px;font-weight:800;color:#f4a035">ISA RACK SA</div><div style="font-size:6px;color:#7a6a50;letter-spacing:2px">CONTROL DE VENTAS</div></td>
-  <td style="padding:6px;text-align:center"><div style="font-size:13px;font-weight:700;color:#fff">📋 REPORTE \${bimestreActivo||''}</div><div style="font-size:6px;color:#aaa">\${currentUser?currentUser.name:'Admin'} · \${fecha}</div></td>
-  <td style="padding:6px 14px;text-align:right"><div style="font-size:7px;color:#aaa">TC DOF: <strong style="color:#fff">$\${fmtR(tcUsado)} MXN</strong></div></td>
-</tr></table>
-<table width="100%" style="margin-bottom:6px;border-collapse:separate;border-spacing:4px"><tr>
-  <td width="22%" style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:4px 8px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Pagadas c/Factura</div><div style="font-size:20px;font-weight:800;color:#2e7d32">\${pag.length}</div><div style="font-size:6px;color:#7a6a50">de \${orders.length} totales</div></td>
-  <td width="22%" style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:4px 8px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Pendientes</div><div style="font-size:20px;font-weight:800;color:#e65100">\${pend.length}</div><div style="font-size:6px;color:#7a6a50">sin pago 100%</div></td>
-  <td width="22%" style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:4px 8px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">TC DOF</div><div style="font-size:14px;font-weight:800;color:#111">$\${fmtR(tcUsado)} MXN</div></td>
-  <td style="background:#f0faf0;border:2px solid #4caf50;border-radius:3px;padding:4px 10px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Comisiones Pagadas — Con Factura</div><div style="font-size:6px;color:#888;margin-bottom:2px">Pagadas al 100% · USD × TC DOF</div><div style="font-size:22px;font-weight:900;color:#2e7d32">$\${fmtR(tot)} <span style="font-size:9px">MXN</span></div></td>
-</tr></table>
-<table width="100%" style="border-collapse:separate;border-spacing:6px"><tr valign="top">
-  <td width="43%">
-    <div style="font-size:8px;font-weight:700;color:#2e7d32;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:3px">✅ ÓRDENES 1-19</div>
-    <table width="100%" style="border-collapse:collapse"><thead><tr>
-      <th \${thS}>ODOO</th><th \${thS}>FACTURA</th><th \${thS}>CLIENTE</th>
-      <th \${thS} style="text-align:right">DLLS</th><th \${thS} style="text-align:right">PESOS</th><th \${thS} style="text-align:right">COMISIÓN</th>
-    </tr></thead><tbody>\${rows1}</tbody></table>
-  </td>
-  <td width="43%">
-    <div style="font-size:8px;font-weight:700;color:#2e7d32;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:3px">✅ ÓRDENES 20-\${pag.length}</div>
-    <table width="100%" style="border-collapse:collapse"><thead><tr>
-      <th \${thS}>ODOO</th><th \${thS}>FACTURA</th><th \${thS}>CLIENTE</th>
-      <th \${thS} style="text-align:right">DLLS</th><th \${thS} style="text-align:right">PESOS</th><th \${thS} style="text-align:right">COMISIÓN</th>
-    </tr></thead><tbody>\${rows2}
-      <tr style="background:#e8f5e9"><td colspan="4" style="padding:3px 5px;font-size:9px;font-weight:700;color:#2e7d32;text-align:right;border-top:2px solid #4caf50">TOTAL COMISIONES</td><td style="border-top:2px solid #4caf50"></td><td style="padding:3px 5px;font-size:10px;font-weight:800;color:#2e7d32;text-align:right;border-top:2px solid #4caf50">$\${fmtR(tot)} MXN</td></tr>
-    </tbody></table>
-  </td>
-  <td width="14%" style="background:#fafafa;border:1px solid #ddd;border-radius:6px;padding:10px 8px">
-    <div style="font-size:10px;font-weight:700;color:#333;border-bottom:1px solid #ddd;padding-bottom:5px;margin-bottom:8px">💳 DESCUENTOS</div>
-    <div style="margin-bottom:8px"><div style="font-size:7px;color:#888;text-transform:uppercase;margin-bottom:2px">Deuda Actual</div>
-    <input id="deuda" type="text" value="0.00" oninput="recalc()" style="border:1px solid #ddd;border-radius:3px;padding:4px 6px;font-size:11px;font-weight:700;color:#111;width:100%;text-align:right"></div>
-    <div style="margin-bottom:8px"><div style="font-size:7px;color:#888;text-transform:uppercase;margin-bottom:2px">Abono Bimestre</div>
-    <input id="abono" type="text" value="0.00" oninput="recalc()" style="border:1px solid #ddd;border-radius:3px;padding:4px 6px;font-size:11px;font-weight:700;color:#111;width:100%;text-align:right"></div>
-    <div style="background:#fff3e0;border-radius:4px;padding:6px 8px;margin-bottom:10px"><div style="font-size:7px;color:#c45a00;text-transform:uppercase">Resta Adeudo</div><div id="resta" style="font-size:15px;font-weight:800;color:#c45a00;text-align:right">$0.00</div></div>
-    <div style="border-top:1px solid #ddd;padding-top:8px;margin-bottom:6px">
-      <div style="font-size:7px;color:#666;text-transform:uppercase">Total Comisiones</div><div style="font-size:12px;font-weight:700;color:#2e7d32;text-align:right">$\${fmtR(tot)}</div>
-      <div style="font-size:7px;color:#666;text-transform:uppercase;margin-top:4px">Abono al Adeudo</div><div style="font-size:11px;font-weight:700;color:#c45a00;text-align:right">- $0.00</div>
-    </div>
-    <div style="background:#e8f5e9;border-radius:4px;padding:6px 8px"><div style="font-size:7px;color:#2e7d32;text-transform:uppercase">Neto a Cobrar</div><div id="neto" style="font-size:15px;font-weight:800;color:#2e7d32;text-align:right">$\${fmtR(tot)}</div></div>
-  </td>
-</tr>
-<tr><td colspan="2" style="padding-top:10px">
-  <table width="100%"><tr>
-    <td width="50%" style="text-align:center;padding:0 20px"><div style="border-top:1px solid #333;margin-bottom:4px;margin-top:20px"></div><div style="font-size:10px;font-weight:700;color:#111">Daniel Osuna Rueda</div><div style="font-size:9px;color:#555">Vendedor</div></td>
-    <td width="50%" style="text-align:center;padding:0 20px"><div style="border-top:1px solid #333;margin-bottom:4px;margin-top:20px"></div><div style="font-size:10px;font-weight:700;color:#111">Gildardo Osuna Rueda</div><div style="font-size:9px;color:#555">CEO</div></td>
-  </tr></table>
-</td><td></td></tr>
-</table>
-</body></html>`;
-    const w=window.open('','_blank');
-    w.document.write(html);
-    w.document.close();
-    const s=w.document.createElement('style');
-    s.textContent='@page{size:letter landscape!important}';
-    w.document.head.appendChild(s);
-    setTimeout(()=>w.print(),800);
+
+    // Inyectar HTML directamente en el modal y llamar window.print()
+    const reporteApp = document.getElementById('reporteApp');
+    reporteApp.innerHTML = `
+    <div style="font-family:'Segoe UI',Arial,sans-serif;color:#111;padding:7px;background:#fff">
+
+      <!-- HEADER -->
+      <table width="100%" style="background:#1a1208;border-radius:4px;margin-bottom:6px;border-collapse:collapse"><tr>
+        <td style="padding:6px 14px"><div style="font-size:15px;font-weight:800;color:#f4a035">ISA RACK SA</div><div style="font-size:6px;color:#7a6a50;letter-spacing:2px">CONTROL DE VENTAS</div></td>
+        <td style="padding:6px;text-align:center"><div style="font-size:13px;font-weight:700;color:#fff">📋 REPORTE ${bimestreActivo||''}</div><div style="font-size:6px;color:#aaa">${currentUser?currentUser.name:'Admin'} · ${fecha}</div></td>
+        <td style="padding:6px 14px;text-align:right"><div style="font-size:7px;color:#aaa">TC DOF: <strong style="color:#fff">$${fmtR(tcUsado)} MXN</strong></div></td>
+      </tr></table>
+
+      <!-- RESUMEN -->
+      <table width="100%" style="margin-bottom:6px;border-collapse:separate;border-spacing:4px"><tr>
+        <td width="22%" style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:4px 8px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Pagadas c/Factura</div><div style="font-size:20px;font-weight:800;color:#2e7d32">${pag.length}</div><div style="font-size:6px;color:#7a6a50">de ${orders.length} totales</div></td>
+        <td width="22%" style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:4px 8px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Pendientes</div><div style="font-size:20px;font-weight:800;color:#e65100">${pend.length}</div><div style="font-size:6px;color:#7a6a50">sin pago 100%</div></td>
+        <td width="22%" style="background:#faf8f4;border:1px solid #ddd;border-radius:3px;padding:4px 8px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">TC DOF</div><div style="font-size:14px;font-weight:800;color:#111">$${fmtR(tcUsado)} MXN</div></td>
+        <td style="background:#f0faf0;border:2px solid #4caf50;border-radius:3px;padding:4px 10px"><div style="font-size:6px;color:#7a6a50;text-transform:uppercase">Comisiones — Con Factura</div><div style="font-size:6px;color:#888;margin-bottom:2px">Pagadas al 100% · USD × TC DOF</div><div style="font-size:22px;font-weight:900;color:#2e7d32">$${fmtR(tot)} <span style="font-size:9px">MXN</span></div></td>
+      </tr></table>
+
+      <!-- TABLAS + PANEL -->
+      <table width="100%" style="border-collapse:separate;border-spacing:6px"><tr valign="top">
+
+        <!-- COL 1 -->
+        <td width="43%">
+          <div style="font-size:8px;font-weight:700;color:#2e7d32;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:3px">✅ ÓRDENES 1-19</div>
+          <table width="100%" style="border-collapse:collapse">
+            <thead><tr><th style="${thS}">ODOO</th><th style="${thS}">FACTURA</th><th style="${thS}">CLIENTE</th><th style="${thS};text-align:right">DLLS</th><th style="${thS};text-align:right">PESOS</th><th style="${thS};text-align:right">COMISIÓN</th></tr></thead>
+            <tbody>${rows1}</tbody>
+          </table>
+        </td>
+
+        <!-- COL 2 -->
+        <td width="43%">
+          <div style="font-size:8px;font-weight:700;color:#2e7d32;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:3px">✅ ÓRDENES 20-${pag.length}</div>
+          <table width="100%" style="border-collapse:collapse">
+            <thead><tr><th style="${thS}">ODOO</th><th style="${thS}">FACTURA</th><th style="${thS}">CLIENTE</th><th style="${thS};text-align:right">DLLS</th><th style="${thS};text-align:right">PESOS</th><th style="${thS};text-align:right">COMISIÓN</th></tr></thead>
+            <tbody>${rows2}
+              <tr style="background:#e8f5e9"><td colspan="4" style="padding:3px 5px;font-size:9px;font-weight:700;color:#2e7d32;text-align:right;border-top:2px solid #4caf50">TOTAL COMISIONES</td><td style="border-top:2px solid #4caf50"></td><td style="padding:3px 5px;font-size:10px;font-weight:800;color:#2e7d32;text-align:right;border-top:2px solid #4caf50">$${fmtR(tot)} MXN</td></tr>
+            </tbody>
+          </table>
+        </td>
+
+        <!-- PANEL DESCUENTOS -->
+        <td width="14%" style="background:#fafafa;border:1px solid #ddd;border-radius:6px;padding:10px 8px">
+          <div style="font-size:10px;font-weight:700;color:#333;border-bottom:1px solid #ddd;padding-bottom:5px;margin-bottom:8px">💳 DESCUENTOS</div>
+          <div style="margin-bottom:8px">
+            <div style="font-size:7px;color:#888;text-transform:uppercase;margin-bottom:2px">Deuda Actual</div>
+            <input id="pr-deuda" type="text" value="0.00" oninput="prRecalc()" style="border:1px solid #ddd;border-radius:3px;padding:4px 6px;font-size:11px;font-weight:700;color:#111;width:100%;text-align:right;box-sizing:border-box">
+          </div>
+          <div style="margin-bottom:8px">
+            <div style="font-size:7px;color:#888;text-transform:uppercase;margin-bottom:2px">Abono Bimestre</div>
+            <input id="pr-abono" type="text" value="0.00" oninput="prRecalc()" style="border:1px solid #ddd;border-radius:3px;padding:4px 6px;font-size:11px;font-weight:700;color:#111;width:100%;text-align:right;box-sizing:border-box">
+          </div>
+          <div style="background:#fff3e0;border-radius:4px;padding:6px 8px;margin-bottom:10px">
+            <div style="font-size:7px;color:#c45a00;text-transform:uppercase">Resta Adeudo</div>
+            <div id="pr-resta" style="font-size:15px;font-weight:800;color:#c45a00;text-align:right">$0.00</div>
+          </div>
+          <div style="border-top:1px solid #ddd;padding-top:8px;margin-bottom:6px">
+            <div style="font-size:7px;color:#666;text-transform:uppercase">Total Comisiones</div>
+            <div style="font-size:12px;font-weight:700;color:#2e7d32;text-align:right">$${fmtR(tot)}</div>
+            <div style="font-size:7px;color:#666;text-transform:uppercase;margin-top:4px">Abono al Adeudo</div>
+            <div id="pr-abono-display" style="font-size:11px;font-weight:700;color:#c45a00;text-align:right">- $0.00</div>
+          </div>
+          <div style="background:#e8f5e9;border-radius:4px;padding:6px 8px">
+            <div style="font-size:7px;color:#2e7d32;text-transform:uppercase">Neto a Cobrar</div>
+            <div id="pr-neto" style="font-size:15px;font-weight:800;color:#2e7d32;text-align:right">$${fmtR(tot)}</div>
+          </div>
+        </td>
+
+      </tr>
+
+      <!-- FIRMAS -->
+      <tr><td colspan="2" style="padding-top:10px">
+        <table width="100%" style="border-collapse:collapse"><tr>
+          <td width="50%" style="text-align:center;padding:0 20px">
+            <div style="border-top:1px solid #333;margin-bottom:4px;margin-top:20px"></div>
+            <div style="font-size:10px;font-weight:700;color:#111">Daniel Osuna Rueda</div>
+            <div style="font-size:9px;color:#555">Vendedor</div>
+          </td>
+          <td width="50%" style="text-align:center;padding:0 20px">
+            <div style="border-top:1px solid #333;margin-bottom:4px;margin-top:20px"></div>
+            <div style="font-size:10px;font-weight:700;color:#111">Gildardo Osuna Rueda</div>
+            <div style="font-size:9px;color:#555">CEO</div>
+          </td>
+        </tr></table>
+      </td><td></td></tr>
+
+      </table>
+    </div>`;
+
+    // Definir recalc en el contexto del modal
+    window.prRecalc = function() {
+      const d=parseFloat(document.getElementById('pr-deuda').value.replace(/[^0-9.]/g,'')||0);
+      const a=parseFloat(document.getElementById('pr-abono').value.replace(/[^0-9.]/g,'')||0);
+      document.getElementById('pr-resta').innerHTML='$'+(d-a).toLocaleString('es-MX',{minimumFractionDigits:2});
+      document.getElementById('pr-neto').innerHTML='$'+(tot-a).toLocaleString('es-MX',{minimumFractionDigits:2});
+      document.getElementById('pr-abono-display').innerHTML='- $'+a.toLocaleString('es-MX',{minimumFractionDigits:2});
+    };
+
+    window.print();
   }
 
   // ── MODAL ────────────────────────────────────────────────────
