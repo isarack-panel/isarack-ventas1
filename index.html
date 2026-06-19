@@ -4383,6 +4383,7 @@
 
   // ── DATA STORE ──────────────────────────────────────────────
   let orders = [];
+  let loadOrdersToken = 0; // evita que cargas viejas (timeouts tardíos) pisen datos nuevos
   let pdfFiles = {};
   let filterActive = null;
   let firestoreLoaded = false;
@@ -6270,8 +6271,18 @@ let _unused = 17.3213;
   async function loadOrders() {
     setConnectionStatus('loading');
 
+    // Esta llamada a loadOrders() es la única autoridad vigente.
+    // Si el usuario recarga o cambia de bimestre mientras una carga
+    // anterior sigue en vuelo, esa carga anterior queda "obsoleta" y
+    // NUNCA debe poder pisar los datos de esta carga nueva.
+    const loadToken = ++loadOrdersToken;
+    let firestoreResponded = false;
+
     // Helper: load from localStorage immediately so UI is never blank
     function loadFromLocal() {
+      // Si Firestore ya respondió (aunque sea tarde) o esta carga
+      // ya fue reemplazada por otra más nueva, no tocar `orders`.
+      if (firestoreResponded || loadToken !== loadOrdersToken) return;
       try {
         const local = localStorage.getItem('b_'+(bimestreActivo||'def'));
         if (local) {
@@ -6285,20 +6296,30 @@ let _unused = 17.3213;
       if (overlay) overlay.style.display = 'none';
     }
 
-    // Set a 6-second timeout — if Firestore doesn't respond, fall back to local
-    let firestoreResponded = false;
+    // Aviso visual de "cargando más tiempo de lo normal" — ya NO sobreescribe
+    // `orders` con localStorage mientras Firestore sigue intentando responder.
     const timeout = setTimeout(() => {
       if (!firestoreResponded) {
-        console.warn('Firestore timeout — usando datos locales');
+        console.warn('Firestore está tardando — se mantiene en espera (no se sobreescriben datos)');
+        setConnectionStatus('loading');
+      }
+    }, 6000);
+
+    // Fallback real a localStorage solo si Firestore tarda demasiado (30s)
+    const hardFallback = setTimeout(() => {
+      if (!firestoreResponded) {
+        console.warn('Firestore timeout largo — usando datos locales como respaldo');
         setConnectionStatus('offline');
         loadFromLocal();
       }
-    }, 6000);
+    }, 30000);
 
     // Si Firebase no está listo, ir directo a localStorage
     if (!firebaseReady || !db) {
       console.warn('Firebase no disponible, usando localStorage');
       setConnectionStatus('offline');
+      clearTimeout(timeout);
+      clearTimeout(hardFallback);
       loadFromLocal();
       return;
     }
@@ -6307,6 +6328,12 @@ let _unused = 17.3213;
       const snapshot = await db.collection(getCollection()).get();
       firestoreResponded = true;
       clearTimeout(timeout);
+      clearTimeout(hardFallback);
+
+      // Si mientras esperábamos esta respuesta el usuario disparó otra
+      // carga más nueva (recarga rápida, cambio de bimestre, etc.),
+      // descartamos esta respuesta tardía para no pisar la más reciente.
+      if (loadToken !== loadOrdersToken) return;
 
       if (!snapshot.empty) {
         orders = snapshot.docs.map(doc => {
@@ -6356,11 +6383,14 @@ let _unused = 17.3213;
     } catch(e) {
       firestoreResponded = true;
       clearTimeout(timeout);
+      clearTimeout(hardFallback);
       console.warn('Firestore error:', e.message);
       setConnectionStatus('offline');
-      loadFromLocal();
-      renderOrders();
-      updateStats();
+      if (loadToken === loadOrdersToken) {
+        loadFromLocal();
+        renderOrders();
+        updateStats();
+      }
       const overlay = document.getElementById('loadingOverlay');
       if (overlay) overlay.style.display = 'none';
       return;
